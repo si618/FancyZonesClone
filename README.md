@@ -87,6 +87,10 @@ Releases aren't Authenticode-signed yet, so Windows SmartScreen warns on first r
 
 To fix a bad release, tag a new version.
 
+## Security
+
+To report a vulnerability, follow [SECURITY.md](SECURITY.md). Only the latest release gets security fixes.
+
 ## Licence
 
 [MIT](LICENSE). Portions are ported from Microsoft PowerToys, also MIT. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
