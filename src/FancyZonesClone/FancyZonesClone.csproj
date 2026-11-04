@@ -15,6 +15,9 @@
     <!-- Publish one self-contained native executable, so there's no .NET runtime to install and it starts
          quickly at sign-in. -->
     <PublishAot>true</PublishAot>
+    <!-- Without it, PublishAot defaults the publish RID to the build host's, which adds linux-x64 on the Ubuntu
+         CodeQL runner, and the locked restore fails with NU1004 because packages.lock.json has only win-x64. -->
+    <PublishRuntimeIdentifier>win-x64</PublishRuntimeIdentifier>
     <InvariantGlobalization>true</InvariantGlobalization>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
   </PropertyGroup>

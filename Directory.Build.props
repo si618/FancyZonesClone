@@ -38,8 +38,14 @@
   <PropertyGroup Label="Packaging hygiene">
     <!-- Central Package Management (Directory.Packages.props) pins each package's version, not its content.
          packages.lock.json also records each package's hash, so restore fails if a feed serves different bytes for a
-         pinned version. To get that check, set this to true and restore with locked mode in CI (opinions/ci.md). -->
-    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+         pinned version (opinions/ci.md). -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <!-- Locked mode in CI covers every implicit restore too, such as the one dotnet publish runs for win-x64, so a
+         lock file that's out of date fails the build instead of being rewritten. Locally, restore updates it. -->
+    <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
+    <!-- dotnet publish -r win-x64 restores the app and every project it references for win-x64, so each lock file
+         needs that graph, with the ILCompiler runtime pack, for the locked restore to pass. -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- The doc file feeds IDE tooltips and OpenAPI XML comments. CS1591 is exempt, so undocumented internals don't fail the build. -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>

@@ -27,7 +27,7 @@ The Windows projects build on Linux with `EnableWindowsTargeting`, but only the 
 - **Name tests `UnitOfWork_Scenario_ExpectedBehaviour`,** and mark their structure with `// Arrange`, `// Act`, and `// Assert` comments.
 - **Keep FancyZones' arithmetic exactly,** so imported layouts produce the same pixels. Check behaviour against `src/modules/fancyzones/FancyZonesLib` in [microsoft/PowerToys](https://github.com/microsoft/PowerToys) before you call a difference a bug, and mark ported files with the Microsoft copyright header.
 - **Keep interop AOT-safe.** Don't marshal delegates to native code, and don't use reflection-based JSON: serialise through `ConfigJsonContext`.
-- **Set package versions only in `Directory.Packages.props`.**
+- **Set package versions only in `Directory.Packages.props`,** then run `dotnet restore` and commit the `packages.lock.json` files it updates.
 
 ## Maintaining this repository
 
@@ -79,4 +79,4 @@ Work in a git worktree, with one branch per directory. The local clone is bare, 
 
 ### Releases
 
-Push an annotated `v*` tag on `main`. MinVer takes the version from the tag, so there's no `<Version>` to edit. `release.yml` fails unless the tagged commit is on `main`. Its `build` job tests, AOT-publishes win-x64, checks that the executable's version matches the tag, and uploads the zip with a read-only token. Its `release` job alone holds `contents: write`: it writes `SHA256SUMS`, attests the zip's provenance, and creates a GitHub release with generated notes. Keep build steps out of the `release` job.
+Push an annotated `v*` tag on `main`. MinVer takes the version from the tag, so there's no `<Version>` to edit. `release.yml` fails unless the tagged commit is on `main`. Its `build` job tests, AOT-publishes win-x64, checks that the executable's version matches the tag, writes a CycloneDX SBOM, and uploads the zip and SBOM with a read-only token. Its `release` job alone holds `contents: write`: it writes `SHA256SUMS`, attests the zip's provenance, and creates a GitHub release with generated notes. Keep build steps out of the `release` job.

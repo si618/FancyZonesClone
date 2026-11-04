@@ -48,6 +48,8 @@ dotnet publish src/FancyZonesClone -c Release -r win-x64
 
 The solution builds on Linux, and the Core tests run there. The Native AOT publish needs Windows with the Visual Studio C++ build tools. For a quick local build without them, add `-p:PublishAot=false --self-contained`.
 
+Restore uses nuget.org alone, through `nuget.config`, and each project's `packages.lock.json` pins every package's hash. After you change a package version in `Directory.Packages.props`, run `dotnet restore` and commit the updated lock files. CI restores in locked mode, so a stale lock file fails the build.
+
 Avalonia's build tasks and the TUnit test host send usage telemetry. To opt out, set `AVALONIA_TELEMETRY_OPTOUT=1` and `TESTINGPLATFORM_TELEMETRY_OPTOUT=1` in your environment. CI and release set both.
 
 The code follows the [awesome-humans .NET opinions](https://awesome-humans.net/dotnet/) with the `simon-mckenna` house profile, and tests use [TUnit](https://tunit.dev). [AGENTS.md](AGENTS.md) describes the layout, conventions, and workflow for maintaining the repository.
@@ -69,7 +71,7 @@ To publish a release:
 
     A pre-release tag such as `v1.1.0-beta.1` publishes a pre-release. The `release tags` ruleset lets only repository admins create, move, or delete `v*` tags.
 
-4. Watch the Release run under the repository's Actions tab. It tests, AOT-publishes win-x64, checks that the executable's version matches the tag, and creates a GitHub release with notes generated from the pull requests merged since the previous tag, with the zipped executable attached. A separate job publishes the release, so the build steps never hold the write token. It attaches a `SHA256SUMS` file and records a build provenance attestation for the zip.
+4. Watch the Release run under the repository's Actions tab. It tests, AOT-publishes win-x64, checks that the executable's version matches the tag, and creates a GitHub release with notes generated from the pull requests merged since the previous tag, with the zipped executable attached. A separate job publishes the release, so the build steps never hold the write token. It attaches a CycloneDX SBOM, `FancyZonesClone-<version>-win-x64.cdx.json`, and a `SHA256SUMS` file, and records a build provenance attestation for the zip.
 
 To check a download, compare its hash with `SHA256SUMS`, or verify its provenance with the GitHub CLI:
 
