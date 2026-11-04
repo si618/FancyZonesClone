@@ -86,3 +86,18 @@ jobs:
             echo "::error::$REF didn't rebuild byte for byte; download publish-a and publish-b to diff them"
             exit 1
           fi
+
+      # Shows which PE sections hold the differences, so a mismatch can be diagnosed from the log alone.
+      - name: Locate differences
+        if: failure()
+        run: |
+          for a in $(find publish-a -name '*.exe' -o -name '*.dll'); do
+            b="publish-b/${a#publish-a/}"
+            cmp -s "$a" "$b" && continue
+            echo "== ${a#publish-a/}: $(stat -c %s "$a") and $(stat -c %s "$b") bytes, $(cmp -l "$a" "$b" | wc -l) bytes differ"
+            # Collapse differing offsets (1-based, decimal) into ranges, printed as 0-based hex file offsets.
+            cmp -l "$a" "$b" | awk '
+              { o = $1 - 1; if (o != end + 1) { if (n) printf "  0x%x-0x%x (%d bytes)\n", start, end, end - start + 1; start = o; n++ } end = o }
+              END { if (n) printf "  0x%x-0x%x (%d bytes)\n", start, end, end - start + 1; print "  " n " ranges" }' | tail -n 40
+            objdump -h "$a" | sed -n '/^Sections:/,$p'
+          done
