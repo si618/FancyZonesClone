@@ -107,6 +107,25 @@ public class OverlayRendererTests
     }
 
     [Test]
+    public async Task From_UnparseableColours_FallsBackToTheDefaultColours()
+    {
+        // Arrange
+        var unparseable = new FancyZonesCloneSettings
+        {
+            ZoneColor = "x",
+            ZoneBorderColor = "x",
+            ZoneHighlightColor = "x",
+            ZoneNumberColor = "x",
+        };
+
+        // Act
+        var style = OverlayStyle.From(unparseable);
+
+        // Assert
+        await Assert.That(style).IsEqualTo(OverlayStyle.From(new FancyZonesCloneSettings()));
+    }
+
+    [Test]
     [Arguments(40, 40, 12)]
     [Arguments(100, 100, 16)]
     [Arguments(2112, 1477, 246)]
