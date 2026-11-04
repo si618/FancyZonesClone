@@ -48,11 +48,13 @@ dotnet publish src/FancyZonesClone -c Release -r win-x64
 
 The solution builds on Linux, and the Core tests run there. The Native AOT publish needs Windows with the Visual Studio C++ build tools. For a quick local build without them, add `-p:PublishAot=false --self-contained`.
 
+Avalonia's build tasks and the TUnit test host send usage telemetry. To opt out, set `AVALONIA_TELEMETRY_OPTOUT=1` and `TESTINGPLATFORM_TELEMETRY_OPTOUT=1` in your environment. CI and release set both.
+
 The code follows the [awesome-humans .NET opinions](https://awesome-humans.net/dotnet/) with the `simon-mckenna` house profile, and tests use [TUnit](https://tunit.dev). [AGENTS.md](AGENTS.md) describes the layout, conventions, and workflow for maintaining the repository.
 
 ## Releases
 
-[CI](.github/workflows/ci.yml) builds, tests, and AOT-publishes every push to `main` and every pull request. The [Release workflow](.github/workflows/release.yml) runs only when a `v*` tag is pushed.
+[CI](.github/workflows/ci.yml) builds, tests, and AOT-publishes every push to `main` and every pull request. The [Release workflow](.github/workflows/release.yml) runs only when a `v*` tag is pushed, and fails unless the tagged commit is on `main`. [CodeQL](.github/workflows/codeql.yml) scans the C# and the workflows on every push to `main`, every pull request, and weekly.
 
 To publish a release:
 
@@ -65,9 +67,15 @@ To publish a release:
     git push origin v1.0.0
     ```
 
-    A pre-release tag such as `v1.1.0-beta.1` publishes a pre-release.
+    A pre-release tag such as `v1.1.0-beta.1` publishes a pre-release. The `release tags` ruleset lets only repository admins create, move, or delete `v*` tags.
 
-4. Watch the Release run under the repository's Actions tab. It tests, AOT-publishes win-x64, checks that the executable's version matches the tag, and creates a GitHub release with notes generated from the pull requests merged since the previous tag, with the zipped executable attached.
+4. Watch the Release run under the repository's Actions tab. It tests, AOT-publishes win-x64, checks that the executable's version matches the tag, and creates a GitHub release with notes generated from the pull requests merged since the previous tag, with the zipped executable attached. A separate job publishes the release, so the build steps never hold the write token. It attaches a `SHA256SUMS` file and records a build provenance attestation for the zip.
+
+To check a download, compare its hash with `SHA256SUMS`, or verify its provenance with the GitHub CLI:
+
+```sh
+gh attestation verify FancyZonesClone-1.0.0-win-x64.zip --repo si618/FancyZonesClone
+```
 
 To fix a bad release, tag a new version.
 
