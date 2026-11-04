@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FancyZonesClone.Core.Configuration;
 using FancyZonesClone.Core.Geometry;
 using FancyZonesClone.Core.Layouts;
@@ -24,14 +25,21 @@ public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings)
     private int _width;
     private int _height;
 
+    // Whether the current run of failures is already traced, so a drag sampled at 100 Hz traces it once.
+    private bool _failureTraced;
+
     /// <inheritdoc/>
     public void Show(MonitorDescriptor monitor, ZoneSet zoneSet, IReadOnlyList<int> highlighted)
     {
         ArgumentNullException.ThrowIfNull(monitor);
 
+        // Out of GDI handles or memory, there's nothing to draw on: show nothing, and try again on the next call.
         PixelRect area = monitor.WorkArea;
-        EnsureWindow();
-        EnsureSurface(area.Width, area.Height);
+        if (!EnsureWindow() || !EnsureSurface(area.Width, area.Height))
+        {
+            Hide();
+            return;
+        }
 
         OverlayRenderer.Render(new Span<uint>(_pixels, _width * _height), _width, _height, zoneSet, highlighted, OverlayStyle.From(settings()));
 
@@ -71,11 +79,11 @@ public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings)
         }
     }
 
-    private void EnsureWindow()
+    private bool EnsureWindow()
     {
         if (_window != 0)
         {
-            return;
+            return true;
         }
 
         nint instance = Native.GetModuleHandleW(lpModuleName: null);
@@ -94,13 +102,14 @@ public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings)
 
         const uint ExStyle = Native.WS_EX_LAYERED | Native.WS_EX_TRANSPARENT | Native.WS_EX_TOOLWINDOW | Native.WS_EX_TOPMOST | Native.WS_EX_NOACTIVATE;
         _window = Native.CreateWindowExW(ExStyle, ClassName, "FancyZonesClone overlay", Native.WS_POPUP, 0, 0, 0, 0, 0, 0, instance, 0);
+        return _window != 0 || Fail("CreateWindowExW");
     }
 
-    private void EnsureSurface(int width, int height)
+    private bool EnsureSurface(int width, int height)
     {
         if (_bitmap != 0 && width == _width && height == _height)
         {
-            return;
+            return true;
         }
 
         ReleaseSurface();
@@ -117,17 +126,49 @@ public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings)
         nint screenDc = Native.GetDC(0);
         try
         {
-            _memoryDc = Native.CreateCompatibleDC(screenDc);
-            _bitmap = Native.CreateDIBSection(screenDc, header, Native.DIB_RGB_COLORS, out nint bits, 0, 0);
-            _previousBitmap = Native.SelectObject(_memoryDc, _bitmap);
+            nint bits = 0;
+            nint memoryDc = Native.CreateCompatibleDC(screenDc);
+            nint bitmap = memoryDc != 0 ? Native.CreateDIBSection(screenDc, header, Native.DIB_RGB_COLORS, out bits, 0, 0) : 0;
+            if (bitmap == 0 || bits == 0)
+            {
+                // Release whatever was created, so a failure doesn't leak the handles it ran short of.
+                if (bitmap != 0)
+                {
+                    Native.DeleteObject(bitmap);
+                }
+
+                if (memoryDc != 0)
+                {
+                    Native.DeleteDC(memoryDc);
+                }
+
+                return Fail(memoryDc == 0 ? "CreateCompatibleDC" : "CreateDIBSection");
+            }
+
+            _memoryDc = memoryDc;
+            _bitmap = bitmap;
+            _previousBitmap = Native.SelectObject(memoryDc, bitmap);
             _pixels = (uint*)bits;
             _width = width;
             _height = height;
+            _failureTraced = false;
+            return true;
         }
         finally
         {
             _ = Native.ReleaseDC(0, screenDc);
         }
+    }
+
+    private bool Fail(string call)
+    {
+        if (!_failureTraced)
+        {
+            Trace.TraceWarning($"FancyZonesClone: {call} failed, so the zone overlay isn't shown. The process may be out of GDI handles or memory.");
+            _failureTraced = true;
+        }
+
+        return false;
     }
 
     private void ReleaseSurface()
