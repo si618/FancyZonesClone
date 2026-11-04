@@ -11,7 +11,7 @@ public class HelpTextTests
     public async Task Create_DefaultConfig_DescribesShiftDragAndConfigPath()
     {
         // Act
-        string text = HelpText.Create(new FancyZonesCloneConfig(), ConfigPath);
+        string text = Flatten(HelpText.Create(new FancyZonesCloneConfig(), ConfigPath));
 
         // Assert
         await Assert.That(text).Contains("Hold Shift while you drag a window to show the zones");
@@ -28,7 +28,7 @@ public class HelpTextTests
         config.Settings.ShiftDrag = false;
 
         // Act
-        string text = HelpText.Create(config, ConfigPath);
+        string text = Flatten(HelpText.Create(config, ConfigPath));
 
         // Assert
         await Assert.That(text).Contains("Zones show whenever you drag a window. Hold Shift to hide them.");
@@ -43,7 +43,7 @@ public class HelpTextTests
         config.Settings.OverrideSnapHotkeys = true;
 
         // Act
-        string text = HelpText.Create(config, ConfigPath);
+        string text = Flatten(HelpText.Create(config, ConfigPath));
 
         // Assert
         await Assert.That(text).Contains("Win+Left and Win+Right move the active window");
@@ -58,7 +58,7 @@ public class HelpTextTests
         config.LayoutHotkeys.Add(new LayoutHotkey { Key = 1, LayoutId = Guid.NewGuid() });
 
         // Act
-        string text = HelpText.Create(config, ConfigPath);
+        string text = Flatten(HelpText.Create(config, ConfigPath));
 
         // Assert
         await Assert.That(text).Contains("Assigned digits: 1, 3.");
@@ -73,10 +73,13 @@ public class HelpTextTests
         config.LayoutHotkeys.Add(new LayoutHotkey { Key = 1, LayoutId = Guid.NewGuid() });
 
         // Act
-        string text = HelpText.Create(config, ConfigPath);
+        string text = Flatten(HelpText.Create(config, ConfigPath));
 
         // Assert
         await Assert.That(text).Contains("turn on quickLayoutSwitch");
         await Assert.That(text).DoesNotContain("Assigned digits");
     }
+
+    private static string Flatten(IReadOnlyList<HelpSection> sections) =>
+        string.Join('\n', sections.SelectMany(s => s.Items.Prepend(s.Title)));
 }

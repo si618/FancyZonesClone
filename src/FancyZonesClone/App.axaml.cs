@@ -7,7 +7,6 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using FancyZonesClone.Core.Configuration;
 using FancyZonesClone.Core.Monitors;
-using FancyZonesClone.Core.Presentation;
 using FancyZonesClone.Views;
 using FancyZonesClone.Windows;
 
@@ -19,8 +18,8 @@ public sealed class App : Application, IDisposable
     private FancyZonesCloneConfig _config = new();
     private ZoneEngine? _engine;
     private LayoutsWindow? _layoutsWindow;
+    private HelpWindow? _helpWindow;
     private bool _reporting;
-    private bool _showingHelp;
 
     /// <inheritdoc/>
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -198,23 +197,18 @@ public sealed class App : Application, IDisposable
         }
     }
 
-    // The box's modal loop leaves the tray menu live, so a second click would stack another box.
+    // The window reads the config when it opens, so a reload while it's open shows on the next open.
     private void OnHelp(object? sender, EventArgs e)
     {
-        if (_showingHelp)
+        if (_helpWindow is { } open)
         {
+            open.Activate();
             return;
         }
 
-        _showingHelp = true;
-        try
-        {
-            UserMessages.ShowInformation(HelpText.Create(_config, ConfigStore.DefaultPath), "FancyZonesClone help");
-        }
-        finally
-        {
-            _showingHelp = false;
-        }
+        _helpWindow = new HelpWindow(_config, ConfigStore.DefaultPath);
+        _helpWindow.Closed += (_, _) => _helpWindow = null;
+        _helpWindow.Show();
     }
 
     private void OnExit(object? sender, EventArgs e)

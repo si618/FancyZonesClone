@@ -211,7 +211,6 @@ internal static unsafe partial class Native
     public static partial bool DestroyWindow(nint hWnd);
 
     // MessageBoxW
-    public const uint MB_ICONINFORMATION = 0x00000040;
     public const uint MB_ICONWARNING = 0x00000030;
     public const uint MB_SETFOREGROUND = 0x00010000;
 

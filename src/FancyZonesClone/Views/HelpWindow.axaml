@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="using:System"
+        xmlns:vm="using:FancyZonesClone.Core.Presentation"
+        xmlns:views="using:FancyZonesClone.Views"
+        x:Class="FancyZonesClone.Views.HelpWindow"
+        x:DataType="views:HelpWindow"
+        Title="FancyZonesClone help"
+        Icon="/Assets/icon.png"
+        Width="760" SizeToContent="Height"
+        WindowStartupLocation="CenterScreen">
+  <ScrollViewer>
+    <StackPanel Margin="16">
+      <TextBlock Margin="0,0,0,16" TextWrapping="Wrap" Opacity="0.8" Text="{Binding Intro}" />
+      <ItemsControl ItemsSource="{Binding Sections}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:HelpSection">
+            <StackPanel Margin="0,0,0,16" Spacing="6">
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="16" />
+              <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="sys:String">
+                    <Grid ColumnDefinitions="16,*" Margin="0,0,0,4">
+                      <TextBlock Text="•" Opacity="0.6" />
+                      <SelectableTextBlock Grid.Column="1" Text="{Binding}" TextWrapping="Wrap" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</Window>
