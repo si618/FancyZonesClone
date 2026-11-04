@@ -1,3 +1,4 @@
+using System.Text.Json;
 using TUnit.Assertions.Enums;
 using FancyZonesClone.Core.Configuration;
 using FancyZonesClone.Core.Layouts;
@@ -160,5 +161,79 @@ public class ConfigStoreTests
 
         // Assert
         await Assert.That(config).IsNull();
+    }
+
+    [Test]
+    public async Task Deserialize_EmptyObject_KeepsEveryCollectionEmpty()
+    {
+        // Act
+        FancyZonesCloneConfig config = ConfigStore.Deserialize("{}");
+
+        // Assert
+        await Assert.That(config.CustomLayouts).IsEmpty();
+        await Assert.That(config.Monitors).IsEmpty();
+        await Assert.That(config.LayoutHotkeys).IsEmpty();
+        await Assert.That(config.Settings.ExcludedApps).IsEmpty();
+        await Assert.That(config.DefaultHorizontalLayout.Kind).IsEqualTo(LayoutType.PriorityGrid);
+    }
+
+    [Test]
+    public async Task Deserialize_SettingsWithoutExcludedApps_KeepsExcludedAppsEmpty()
+    {
+        // Act
+        FancyZonesCloneConfig config = ConfigStore.Deserialize(/*lang=json*/ """{ "settings": { "shiftDrag": false } }""");
+
+        // Assert
+        await Assert.That(config.Settings.ExcludedApps).IsEmpty();
+        await Assert.That(config.Settings.ShiftDrag).IsFalse();
+    }
+
+    [Test]
+    [Arguments(/*lang=json*/ """{ "settings": null }""")]
+    [Arguments(/*lang=json*/ """{ "customLayouts": null }""")]
+    [Arguments(/*lang=json*/ """{ "monitors": null }""")]
+    [Arguments(/*lang=json*/ """{ "layoutHotkeys": null }""")]
+    [Arguments(/*lang=json*/ """{ "settings": { "excludedApps": null } }""")]
+    [Arguments(/*lang=json*/ """{ "defaultHorizontalLayout": null }""")]
+    [Arguments(/*lang=json*/ """{ "defaultVerticalLayout": null }""")]
+    [Arguments(/*lang=json*/ """{ "settings": { "zoneColor": null } }""")]
+    [Arguments(/*lang=json*/ """{ "settings": { "excludedApps": [ "Teams.exe", null ] } }""")]
+    [Arguments(/*lang=json*/ """{ "customLayouts": [ null ] }""")]
+    [Arguments(/*lang=json*/ """{ "monitors": [ null ] }""")]
+    [Arguments(/*lang=json*/ """{ "layoutHotkeys": [ null ] }""")]
+    [Arguments(/*lang=json*/ """{ "monitors": [ { "monitor": null, "layout": {} } ] }""")]
+    [Arguments(/*lang=json*/ """{ "monitors": [ { "monitor": { "deviceId": "GSM7863", "instanceId": "1" }, "layout": null } ] }""")]
+    [Arguments(/*lang=json*/ """{ "monitors": [ { "monitor": { "deviceId": null, "instanceId": "1" }, "layout": {} } ] }""")]
+    [Arguments(/*lang=json*/ """{ "monitors": [ { "monitor": { "deviceId": "GSM7863" }, "layout": {} } ] }""")]
+    [Arguments(/*lang=json*/ """{ "customLayouts": [ { "id": "6b7d1c1e-3f5a-4a63-9a0e-0f4c6c1d2e3f", "name": null, "kind": "Grid" } ] }""")]
+    [Arguments(/*lang=json*/ """{ "customLayouts": [ { "id": "6b7d1c1e-3f5a-4a63-9a0e-0f4c6c1d2e3f", "name": "G", "kind": "Grid", "grid": { "rows": 2, "columns": 1, "rowPercents": [5000, 5000], "columnPercents": [10000], "cellChildMap": [[0], null] } } ] }""")]
+    [Arguments(/*lang=json*/ """{ "customLayouts": [ { "id": "6b7d1c1e-3f5a-4a63-9a0e-0f4c6c1d2e3f", "name": "G", "kind": "Grid", "grid": { "rows": 1, "columns": 1, "rowPercents": null, "columnPercents": [10000], "cellChildMap": [[0]] } } ] }""")]
+    [Arguments(/*lang=json*/ """{ "customLayouts": [ { "id": "6b7d1c1e-3f5a-4a63-9a0e-0f4c6c1d2e3f", "name": "C", "kind": "Canvas", "canvas": { "referenceWidth": 100, "referenceHeight": 100, "zones": null } } ] }""")]
+    public async Task Deserialize_NullWhereAValueIsRequired_ThrowsJsonException(string json) =>
+        // Act and assert
+        await Assert.That(() => ConfigStore.Deserialize(json)).Throws<JsonException>();
+
+    [Test]
+    public async Task TryLoad_NullSection_ReturnsTheErrorInsteadOfTheConfig()
+    {
+        // Arrange
+        string folder = Path.Combine(Path.GetTempPath(), "FancyZonesClone.Tests", Guid.NewGuid().ToString("N"));
+        string path = Path.Combine(folder, "config.json");
+        Directory.CreateDirectory(folder);
+        await File.WriteAllTextAsync(path, /*lang=json*/ """{ "monitors": [ null ] }""").ConfigureAwait(false);
+
+        try
+        {
+            // Act
+            ConfigLoadResult result = ConfigStore.TryLoad(path);
+
+            // Assert
+            await Assert.That(result.Config).IsNull();
+            await Assert.That(result.Error).Contains("monitors[0]");
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
     }
 }

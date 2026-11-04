@@ -11,7 +11,9 @@ namespace FancyZonesClone.Core.Configuration;
     WriteIndented = true,
     AllowTrailingCommas = true,
     ReadCommentHandling = JsonCommentHandling.Skip,
-    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    RespectNullableAnnotations = true,
+    RespectRequiredConstructorParameters = true)]
 [JsonSerializable(typeof(FancyZonesCloneConfig))]
 [JsonSerializable(typeof(GridLayoutInfo))]
 internal sealed partial class ConfigJsonContext : JsonSerializerContext;

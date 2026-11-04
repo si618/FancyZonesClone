@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FancyZonesClone.Core.Layouts;
 
 namespace FancyZonesClone.Core.Configuration;
@@ -39,5 +40,6 @@ public sealed class FancyZonesCloneSettings
     public string ZoneNumberColor { get; set; } = "#000000";
 
     /// <summary>Executable paths, or parts of them, that are never snapped. Matching ignores case.</summary>
-    public IList<string> ExcludedApps { get; init; } = [];
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public IList<string> ExcludedApps { get; } = [];
 }

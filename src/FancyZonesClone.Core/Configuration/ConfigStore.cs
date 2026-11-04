@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace FancyZonesClone.Core.Configuration;
@@ -13,10 +14,31 @@ public static class ConfigStore
     public static string Serialize(FancyZonesCloneConfig config) =>
         JsonSerializer.Serialize(config, ConfigJsonContext.Default.FancyZonesCloneConfig);
 
-    /// <summary>Deserialises a config, throwing <see cref="JsonException"/> when the JSON is invalid.</summary>
-    public static FancyZonesCloneConfig Deserialize(string json) =>
-        JsonSerializer.Deserialize(json, ConfigJsonContext.Default.FancyZonesCloneConfig)
-            ?? throw new JsonException("The config file is empty.");
+    /// <summary>
+    /// Deserialises a config, throwing <see cref="JsonException"/> when the JSON is invalid or holds a null where
+    /// the config needs a value.
+    /// </summary>
+    public static FancyZonesCloneConfig Deserialize(string json)
+    {
+        FancyZonesCloneConfig? config;
+        try
+        {
+            config = JsonSerializer.Deserialize(json, ConfigJsonContext.Default.FancyZonesCloneConfig);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // A null for a collection that the serialiser fills in place throws this, not JsonException.
+            throw new JsonException(ex.Message, ex);
+        }
+
+        if (config is null)
+        {
+            throw new JsonException("The config file is empty.");
+        }
+
+        RejectNullEntries(config);
+        return config;
+    }
 
     /// <summary>
     /// Loads the config at <paramref name="path"/>, or returns null when the file doesn't exist. Throws
@@ -70,5 +92,38 @@ public static class ConfigStore
         string temporary = path + ".tmp";
         File.WriteAllText(temporary, Serialize(config));
         File.Move(temporary, path, overwrite: true);
+    }
+
+    // RespectNullableAnnotations checks properties but not list items, so check those here: one null entry would
+    // otherwise throw on every drag.
+    private static void RejectNullEntries(FancyZonesCloneConfig config)
+    {
+        RejectNulls(config.CustomLayouts, "customLayouts");
+        RejectNulls(config.Monitors, "monitors");
+        RejectNulls(config.LayoutHotkeys, "layoutHotkeys");
+        RejectNulls(config.Settings.ExcludedApps, "settings.excludedApps");
+
+        for (int i = 0; i < config.CustomLayouts.Count; i++)
+        {
+            if (config.CustomLayouts[i].Grid is { } grid)
+            {
+                RejectNulls(grid.CellChildMap, string.Create(CultureInfo.InvariantCulture, $"customLayouts[{i}].grid.cellChildMap"));
+            }
+        }
+    }
+
+    private static void RejectNulls<T>(IEnumerable<T?> items, string path)
+        where T : class
+    {
+        int index = 0;
+        foreach (T? item in items)
+        {
+            if (item is null)
+            {
+                throw new JsonException(string.Create(CultureInfo.InvariantCulture, $"{path}[{index}] is null."));
+            }
+
+            index++;
+        }
     }
 }
