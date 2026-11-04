@@ -1,5 +1,7 @@
 // Portions ported from Microsoft PowerToys FancyZones (FancyZonesLib/WindowUtils.cpp).
 // Copyright (c) Microsoft Corporation. Licensed under the MIT License.
+using System.Buffers;
+using System.Runtime.InteropServices;
 using FancyZonesClone.Core.Geometry;
 using FancyZonesClone.Core.Monitors;
 using FancyZonesClone.Core.Windows;
@@ -10,8 +12,19 @@ namespace FancyZonesClone.Windows;
 /// <summary>Reads window facts from Win32 and moves windows into zones.</summary>
 public static unsafe class WindowOperations
 {
+    private const int MaxPath = 260;
+
+    // The longest extended-length path, plus its terminator.
+    private const int MaxExtendedPath = 32_768;
+
     /// <summary>Reads the facts <see cref="WindowRules.Classify"/> needs.</summary>
-    public static WindowTraits ReadTraits(nint window)
+    public static WindowTraits ReadTraits(nint window) => ReadTraits(window, ProcessPath(window));
+
+    /// <summary>
+    /// Reads the facts <see cref="WindowRules.Classify"/> needs, with a process path read earlier. Every call it makes
+    /// reads window state without opening the process or sending a message, so it's quick enough for a keyboard hook.
+    /// </summary>
+    public static WindowTraits ReadTraits(nint window, string processPath)
     {
         uint style = (uint)Native.GetWindowLongPtr(window, Native.GWL_STYLE);
         uint exStyle = (uint)Native.GetWindowLongPtr(window, Native.GWL_EXSTYLE);
@@ -27,7 +40,7 @@ public static unsafe class WindowOperations
             HasCaption: (style & Native.WS_CAPTION) == Native.WS_CAPTION,
             HasMinimizeOrMaximizeBox: (style & (Native.WS_MINIMIZEBOX | Native.WS_MAXIMIZEBOX)) != 0,
             HasVisibleOwner: owner != 0 && Native.IsWindowVisible(owner),
-            ProcessPath: ProcessPath(window));
+            ProcessPath: processPath);
     }
 
     /// <summary>
@@ -45,16 +58,45 @@ public static unsafe class WindowOperations
 
         try
         {
-            var buffer = default(CharBuffer260);
-            uint size = 260;
-            return Native.QueryFullProcessImageNameW(process, 0, ref buffer, ref size)
-                ? ((ReadOnlySpan<char>)buffer)[..(int)size].ToString()
-                : "";
+            // Most paths fit in MAX_PATH. A longer one, up to the 32,767 characters of an extended-length path, gets a
+            // pooled buffer, so an excluded app installed deep in a folder tree still matches its exclusion.
+            Span<char> buffer = stackalloc char[MaxPath];
+            if (TryQueryImageName(process, buffer, out string path, out int error) || error != Native.ERROR_INSUFFICIENT_BUFFER)
+            {
+                return path;
+            }
+
+            char[] rented = ArrayPool<char>.Shared.Rent(MaxExtendedPath);
+            try
+            {
+                _ = TryQueryImageName(process, rented, out path, out _);
+                return path;
+            }
+            finally
+            {
+                ArrayPool<char>.Shared.Return(rented);
+            }
         }
         finally
         {
             Native.CloseHandle(process);
         }
+    }
+
+    // On failure, the path is empty and the error is the call's last Win32 error. QueryFullProcessImageNameW returns
+    // nothing rather than a truncated path when the buffer is too small.
+    private static bool TryQueryImageName(nint process, Span<char> buffer, out string path, out int error)
+    {
+        uint size = (uint)buffer.Length;
+        bool succeeded;
+        fixed (char* chars = buffer)
+        {
+            succeeded = Native.QueryFullProcessImageNameW(process, 0, chars, ref size);
+        }
+
+        error = succeeded ? 0 : Marshal.GetLastPInvokeError();
+        path = succeeded ? buffer[..(int)size].ToString() : "";
+        return succeeded;
     }
 
     /// <summary>

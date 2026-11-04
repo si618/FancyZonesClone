@@ -40,8 +40,29 @@ public static unsafe class Monitors
         Native.MonitorFromPoint(new POINT { X = point.X, Y = point.Y }, Native.MONITOR_DEFAULTTONEAREST);
 
     /// <summary>Returns the monitor showing most of <paramref name="window"/>.</summary>
-    public static MonitorDescriptor? FromWindow(nint window) =>
-        Describe(Native.MonitorFromWindow(window, Native.MONITOR_DEFAULTTONEAREST));
+    public static MonitorDescriptor? FromWindow(nint window) => Describe(HandleFromWindow(window));
+
+    /// <summary>Returns the handle of the monitor showing most of <paramref name="window"/>. Unlike <see cref="FromWindow"/>, it's cheap.</summary>
+    public static nint HandleFromWindow(nint window) => Native.MonitorFromWindow(window, Native.MONITOR_DEFAULTTONEAREST);
+
+    /// <summary>
+    /// Reads a monitor's bounds and work area. Unlike <see cref="Describe"/>, it doesn't enumerate display devices or
+    /// read the registry, so it's quick enough for a keyboard hook.
+    /// </summary>
+    public static bool TryGetAreas(nint monitor, out PixelRect monitorArea, out PixelRect workArea)
+    {
+        var info = new MONITORINFOEXW { cbSize = (uint)sizeof(MONITORINFOEXW) };
+        if (monitor == 0 || !Native.GetMonitorInfoW(monitor, ref info))
+        {
+            monitorArea = default;
+            workArea = default;
+            return false;
+        }
+
+        monitorArea = info.rcMonitor.ToPixelRect();
+        workArea = info.rcWork.ToPixelRect();
+        return true;
+    }
 
     /// <summary>Describes a monitor handle: identity, bounds, and display number.</summary>
     public static MonitorDescriptor? Describe(nint monitor)

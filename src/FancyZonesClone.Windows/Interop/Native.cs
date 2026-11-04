@@ -10,6 +10,7 @@ namespace FancyZonesClone.Windows.Interop;
 internal static unsafe partial class Native
 {
     // WinEvent hooks
+    public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
     public const uint EVENT_SYSTEM_MOVESIZESTART = 0x000A;
     public const uint EVENT_SYSTEM_MOVESIZEEND = 0x000B;
     public const uint EVENT_OBJECT_DESTROY = 0x8001;
@@ -264,9 +265,11 @@ internal static unsafe partial class Native
     [LibraryImport("kernel32.dll")]
     public static partial nint OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, uint dwProcessId);
 
-    [LibraryImport("kernel32.dll")]
+    public const int ERROR_INSUFFICIENT_BUFFER = 122;
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool QueryFullProcessImageNameW(nint hProcess, uint dwFlags, ref CharBuffer260 lpExeName, ref uint lpdwSize);
+    public static partial bool QueryFullProcessImageNameW(nint hProcess, uint dwFlags, char* lpExeName, ref uint lpdwSize);
 
     [LibraryImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
