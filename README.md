@@ -17,7 +17,7 @@ FancyZonesClone isn't affiliated with or endorsed by Microsoft.
 
 ### Not yet
 
-- A layout editor. To create or change a custom layout, ask an AI agent such as Claude Code to work out the zones and write them to `config.json`. That's quicker than dragging zones in an editor. For example, ask it to "split my 3440x1440 monitor into a 50% centre zone with 25% zones either side". You can also edit `config.json` by hand, or design the layout in FancyZones on another machine and re-import.
+- A layout editor. To create or change a custom layout, ask your AI agent to work out the zones and write them to `config.json`. That's quicker than dragging zones in an editor. For example, ask it to "split my 3440x1440 monitor into a 50% centre zone with 25% zones either side". You can also edit `config.json` by hand, or design the layout in FancyZones on another machine and re-import.
 - Layouts per virtual desktop. Import keeps the first layout found for each monitor.
 - Restoring a window's original size when it's dragged out of a zone, moving windows when the display configuration changes, reopening apps in their last zone, Win+PgUp and Win+PgDn window switching, and middle-click spanning.
 - Moving windows of elevated apps. Windows blocks this for unelevated processes, so to move them, run FancyZonesClone elevated.
