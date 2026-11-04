@@ -18,6 +18,7 @@ public sealed class App : Application, IDisposable
     private FancyZonesCloneConfig _config = new();
     private ZoneEngine? _engine;
     private LayoutsWindow? _layoutsWindow;
+    private HelpWindow? _helpWindow;
     private bool _reporting;
 
     /// <inheritdoc/>
@@ -194,6 +195,20 @@ public sealed class App : Application, IDisposable
         {
             ReplaceConfig(config, save: false);
         }
+    }
+
+    // The window reads the config when it opens, so a reload while it's open shows on the next open.
+    private void OnHelp(object? sender, EventArgs e)
+    {
+        if (_helpWindow is { } open)
+        {
+            open.Activate();
+            return;
+        }
+
+        _helpWindow = new HelpWindow(_config, ConfigStore.DefaultPath);
+        _helpWindow.Closed += (_, _) => _helpWindow = null;
+        _helpWindow.Show();
     }
 
     private void OnExit(object? sender, EventArgs e)
