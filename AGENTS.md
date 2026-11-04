@@ -79,4 +79,4 @@ Work in a git worktree, with one branch per directory. The local clone is bare, 
 
 ### Releases
 
-Push an annotated `v*` tag on `main`. MinVer takes the version from the tag, so there's no `<Version>` to edit. `release.yml` tests, AOT-publishes win-x64, checks that the executable's version matches the tag, and creates a GitHub release with generated notes and the zipped executable.
+Push an annotated `v*` tag on `main`. MinVer takes the version from the tag, so there's no `<Version>` to edit. `release.yml` fails unless the tagged commit is on `main`. Its `build` job tests, AOT-publishes win-x64, checks that the executable's version matches the tag, and uploads the zip with a read-only token. Its `release` job alone holds `contents: write`: it writes `SHA256SUMS`, attests the zip's provenance, and creates a GitHub release with generated notes. Keep build steps out of the `release` job.

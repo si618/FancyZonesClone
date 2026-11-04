@@ -1,0 +1,53 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '23 18 * * 0' # weekly, so new queries run against unchanged code
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  # Avalonia.BuildServices reports usage unless told not to.
+  AVALONIA_TELEMETRY_OPTOUT: 1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    # Linux, because analysis needs only the compile, and EnableWindowsTargeting builds the Windows projects here.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # upload the results
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: csharp
+            build-mode: manual
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: MinVer needs the tags to version the build.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        if: matrix.language == 'csharp'
+        with:
+          global-json-file: global.json
+      - uses: github/codeql-action/init@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      # A portable build is enough: the Native AOT publish adds no C# for CodeQL to analyse.
+      - if: matrix.language == 'csharp'
+        run: dotnet build --configuration Release
+      - uses: github/codeql-action/analyze@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
+        with:
+          category: /language:${{ matrix.language }}
