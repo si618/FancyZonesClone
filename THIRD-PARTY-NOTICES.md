@@ -32,18 +32,16 @@ THE SOFTWARE.
 
 ## Distributed with the executable
 
-The release links these packages. Native AOT compiles their managed code into the executable, and their native libraries, `libSkiaSharp.dll`, `libHarfBuzzSharp.dll`, and `av_libglesv2.dll`, ship beside it. Each is used under its own licence, which ships in its NuGet package.
+The release links these packages. Native AOT compiles their managed code into the executable, and their native libraries, `libSkiaSharp.dll` and `libHarfBuzzSharp.dll`, ship beside it. Each is used under its own licence, which ships in its NuGet package.
 
 | Component                        | License       | Source                                                        |
 | -------------------------------- | ------------- | ------------------------------------------------------------- |
 | Avalonia                         | MIT           | [AvaloniaUI/Avalonia](https://github.com/AvaloniaUI/Avalonia) |
 | SkiaSharp (and the Skia library) | MIT (BSD-3)   | [mono/SkiaSharp](https://github.com/mono/SkiaSharp)           |
 | HarfBuzzSharp (and HarfBuzz)     | MIT (Old MIT) | [mono/SkiaSharp](https://github.com/mono/SkiaSharp)           |
-| ANGLE (`av_libglesv2.dll`)       | BSD-3-Clause  | [google/angle](https://chromium.googlesource.com/angle/angle) |
 | MicroCom.Runtime                 | MIT           | [kekekeks/MicroCom](https://github.com/kekekeks/MicroCom)     |
-| Tmds.DBus.Protocol               | MIT           | [tmds/Tmds.DBus](https://github.com/tmds/Tmds.DBus)           |
 | .NET runtime                     | MIT           | [dotnet/runtime](https://github.com/dotnet/runtime)           |
 
-Avalonia references MicroCom.Runtime for COM interop and Tmds.DBus.Protocol for D-Bus on Linux, so both are in the graph that Native AOT compiles.
+Avalonia references MicroCom.Runtime for COM interop, so it's in the graph that Native AOT compiles.
 
 The .NET runtime includes third-party code of its own, such as zlib and parts of the Unicode data. Its notices are in [`THIRD-PARTY-NOTICES.TXT`](https://github.com/dotnet/runtime/blob/release/10.0/THIRD-PARTY-NOTICES.TXT) in dotnet/runtime, and apply to the executable too.

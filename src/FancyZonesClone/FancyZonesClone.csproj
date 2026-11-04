@@ -20,6 +20,8 @@
     <PublishRuntimeIdentifier>win-x64</PublishRuntimeIdentifier>
     <InvariantGlobalization>true</InvariantGlobalization>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <!-- The hooks do little work per event, so smaller code beats faster code here. -->
+    <OptimizationPreference>Size</OptimizationPreference>
   </PropertyGroup>
 
   <ItemGroup Label="Native AOT">
@@ -29,6 +31,14 @@
     <LinkerArg Include="/Brepro" />
   </ItemGroup>
 
+  <!-- Program.cs renders in software, so ANGLE is never loaded. Avalonia.Win32 still depends on
+       Avalonia.Angle.Windows.Natives, so drop its DLL from the publish output. -->
+  <Target Name="RemoveAngleFromPublish" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'av_libglesv2.dll'" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <AvaloniaResource Include="Assets/**" />
   </ItemGroup>
@@ -36,7 +46,11 @@
   <ItemGroup>
     <PackageReference Include="MinVer" PrivateAssets="All" />
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Avalonia.Desktop" />
+    <!-- Avalonia.Win32, Avalonia.Skia, and Avalonia.HarfBuzz instead of Avalonia.Desktop, which also pulls in the
+         X11 and macOS backends. -->
+    <PackageReference Include="Avalonia.Win32" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.HarfBuzz" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
 
