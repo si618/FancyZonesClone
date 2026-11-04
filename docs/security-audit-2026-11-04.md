@@ -387,19 +387,19 @@ Still to test on a machine with the organisation's production policies:
 
 Each finding that needs a change has its own issue:
 
-| Finding | Issue | Title                                                         |
-| ------- | ----- | ------------------------------------------------------------- |
-| FZC-01  | #6    | `ci: keep the release token away from build steps`            |
-| FZC-02  | #7    | `ci: release only from protected tags on main`                |
-| FZC-03  | #8    | `ci: sign, attest, and checksum releases`                     |
-| FZC-04  | #9    | `fix(config): keep collections non-null when loading`         |
-| FZC-05  | #10   | `fix(layouts): cap zone counts`                               |
-| FZC-06  | #11   | `fix(engine): keep keyboard hook work within its timeout`     |
-| FZC-07  | #12   | `fix(app): handle exceptions in tray menu handlers`           |
-| FZC-08  | #13   | `chore: lock restore, map package sources, and ship an SBOM`  |
-| FZC-09  | #14   | `ci: opt out of build and test telemetry`                     |
-| FZC-10  | #15   | `docs: add SECURITY.md and turn on GitHub security features`  |
-| FZC-11  | #16   | `ci: add CodeQL code scanning`                                |
-| FZC-12  | #17   | `fix(windows): read process paths longer than 259 characters` |
-| FZC-13  | #18   | `fix(overlay): handle GDI surface creation failure`           |
-| FZC-14  | #19   | `docs: complete third-party notices`                          |
+| Finding | Issue                                                     | Title                                                         |
+| ------- | --------------------------------------------------------- | ------------------------------------------------------------- |
+| FZC-01  | [#6](https://github.com/si618/FancyZonesClone/issues/6)   | `ci: keep the release token away from build steps`            |
+| FZC-02  | [#7](https://github.com/si618/FancyZonesClone/issues/7)   | `ci: release only from protected tags on main`                |
+| FZC-03  | [#8](https://github.com/si618/FancyZonesClone/issues/8)   | `ci: sign, attest, and checksum releases`                     |
+| FZC-04  | [#9](https://github.com/si618/FancyZonesClone/issues/9)   | `fix(config): keep collections non-null when loading`         |
+| FZC-05  | [#10](https://github.com/si618/FancyZonesClone/issues/10) | `fix(layouts): cap zone counts`                               |
+| FZC-06  | [#11](https://github.com/si618/FancyZonesClone/issues/11) | `fix(engine): keep keyboard hook work within its timeout`     |
+| FZC-07  | [#12](https://github.com/si618/FancyZonesClone/issues/12) | `fix(app): handle exceptions in tray menu handlers`           |
+| FZC-08  | [#13](https://github.com/si618/FancyZonesClone/issues/13) | `chore: lock restore, map package sources, and ship an SBOM`  |
+| FZC-09  | [#14](https://github.com/si618/FancyZonesClone/issues/14) | `ci: opt out of build and test telemetry`                     |
+| FZC-10  | [#15](https://github.com/si618/FancyZonesClone/issues/15) | `docs: add SECURITY.md and turn on GitHub security features`  |
+| FZC-11  | [#16](https://github.com/si618/FancyZonesClone/issues/16) | `ci: add CodeQL code scanning`                                |
+| FZC-12  | [#17](https://github.com/si618/FancyZonesClone/issues/17) | `fix(windows): read process paths longer than 259 characters` |
+| FZC-13  | [#18](https://github.com/si618/FancyZonesClone/issues/18) | `fix(overlay): handle GDI surface creation failure`           |
+| FZC-14  | [#19](https://github.com/si618/FancyZonesClone/issues/19) | `docs: complete third-party notices`                          |
