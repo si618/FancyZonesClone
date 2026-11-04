@@ -19,6 +19,13 @@
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
   </PropertyGroup>
 
+  <ItemGroup Label="Native AOT">
+    <!-- ILCompiler doesn't pass /Brepro, so link.exe stamps the build time into the PE header and debug directory and
+         a random GUID into the PDB reference. /Brepro derives them from a hash of the output, so a rebuild of a tag
+         matches its release byte for byte. reproducible.yml checks it. -->
+    <LinkerArg Include="/Brepro" />
+  </ItemGroup>
+
   <ItemGroup>
     <AvaloniaResource Include="Assets/**" />
   </ItemGroup>

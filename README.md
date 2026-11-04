@@ -77,6 +77,14 @@ To check a download, compare its hash with `SHA256SUMS`, or verify its provenanc
 gh attestation verify FancyZonesClone-1.0.0-win-x64.zip --repo si618/FancyZonesClone
 ```
 
+To check that a release rebuilds byte for byte, run the [Reproducibility workflow](.github/workflows/reproducible.yml) on its tag. It AOT-publishes the tag on two runners and compares the SHA-256 of every exe and DLL.
+
+```sh
+gh workflow run reproducible.yml -f ref=v1.0.0
+```
+
+Releases aren't Authenticode-signed yet, so Windows SmartScreen warns on first run.
+
 To fix a bad release, tag a new version.
 
 ## Licence
