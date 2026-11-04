@@ -290,6 +290,44 @@ public class PowerToysImporterTests
     }
 
     [Test]
+    public async Task Import_ZoneCountAboveMax_CapsItWithAWarning()
+    {
+        // Arrange
+        const string Json = /*lang=json,strict*/ """
+            {"default-layouts":[
+              {"monitor-configuration":"horizontal","layout":{"type":"focus","show-spacing":false,"spacing":0,"zone-count":100000,"sensitivity-radius":20}}
+            ]}
+            """;
+
+        // Act
+        PowerToysImportResult result = PowerToysImporter.Import(new PowerToysFiles(DefaultLayouts: Json));
+
+        // Assert
+        await Assert.That(result.Config.DefaultHorizontalLayout.ZoneCount).IsEqualTo(LayoutSpec.MaxZoneCount);
+        await Assert.That(result.Warnings).Contains(w => w.Contains("capped at 128", StringComparison.Ordinal));
+    }
+
+    [Test]
+    public async Task Import_CanvasWithMoreThanMaxZones_SkipsItWithAWarning()
+    {
+        // Arrange
+        string zones = string.Join(',', Enumerable.Repeat(/*lang=json,strict*/ """{"X":0,"Y":0,"width":10,"height":10}""", LayoutSpec.MaxZoneCount + 1));
+        string json = $$$"""
+            {"custom-layouts":[
+              {"uuid":"{11111111-1111-1111-1111-111111111111}","name":"Huge","type":"canvas",
+               "info":{"ref-width":100,"ref-height":100,"zones":[{{{zones}}}]}}
+            ]}
+            """;
+
+        // Act
+        PowerToysImportResult result = PowerToysImporter.Import(new PowerToysFiles(CustomLayouts: json));
+
+        // Assert
+        await Assert.That(result.Config.CustomLayouts).IsEmpty();
+        await Assert.That(result.Warnings).Contains(w => w.Contains("'Huge': more than 128 zones", StringComparison.Ordinal));
+    }
+
+    [Test]
     [Arguments("priority-grid", LayoutType.PriorityGrid)]
     [Arguments("blank", LayoutType.Blank)]
     [Arguments("focus", LayoutType.Focus)]

@@ -36,7 +36,8 @@ public static class ZoneCalculator
 
     /// <summary>
     /// Builds the zone set for <paramref name="layout"/> on a work area of the given size. Returns an empty zone set
-    /// when the layout is blank, invalid, or references a missing custom layout.
+    /// when the layout is blank, invalid, has more than <see cref="LayoutSpec.MaxZoneCount"/> zones, or references a
+    /// missing custom layout.
     /// </summary>
     public static ZoneSet Calculate(LayoutSpec layout, CustomLayout? custom, int workAreaWidth, int workAreaHeight)
     {
@@ -84,16 +85,38 @@ public static class ZoneCalculator
         };
     }
 
+    /// <summary>
+    /// Whether <paramref name="custom"/> exceeds <see cref="LayoutSpec.MaxZoneCount"/>: a canvas with more zones, or a
+    /// grid with more rows or columns or a zone index of that or more. Such a layout produces no zones.
+    /// </summary>
+    public static bool ExceedsMaxZoneCount(CustomLayout custom)
+    {
+        ArgumentNullException.ThrowIfNull(custom);
+
+        return custom.Kind switch
+        {
+            CustomLayoutType.Grid when custom.Grid is not null => ExceedsMaxZoneCount(custom.Grid),
+            CustomLayoutType.Canvas when custom.Canvas is not null => custom.Canvas.Zones.Count > LayoutSpec.MaxZoneCount,
+            _ => false,
+        };
+    }
+
     /// <summary>Overlapping zones at 40% of the work area, each offset 50 pixels from the last.</summary>
     public static IReadOnlyList<Zone> Focus(int workAreaWidth, int workAreaHeight, int zoneCount)
     {
+        if (zoneCount > LayoutSpec.MaxZoneCount)
+        {
+            return [];
+        }
+
         var rect = new PixelRect(100, 100, 100 + (int)(workAreaWidth * 0.4), 100 + (int)(workAreaHeight * 0.4));
         int increment = zoneCount <= 1 ? 0 : 50;
         List<Zone> zones = [];
+        HashSet<int> indexes = [];
 
         for (int i = 0; i < zoneCount; i++)
         {
-            if (!TryAdd(zones, new Zone(i, rect)))
+            if (!TryAdd(zones, indexes, new Zone(i, rect)))
             {
                 return [];
             }
@@ -107,7 +130,7 @@ public static class ZoneCalculator
     /// <summary>Equal-height rows, sized so they sum exactly to the work area less the spacing.</summary>
     public static IReadOnlyList<Zone> Rows(int workAreaWidth, int workAreaHeight, int zoneCount, int spacing)
     {
-        if (zoneCount <= 0)
+        if (zoneCount is <= 0 or > LayoutSpec.MaxZoneCount)
         {
             return [];
         }
@@ -116,13 +139,14 @@ public static class ZoneCalculator
         long totalHeight = workAreaHeight - (spacing * (zoneCount + 1L));
         long top = spacing;
         List<Zone> zones = [];
+        HashSet<int> indexes = [];
 
         for (int i = 0; i < zoneCount; i++)
         {
             long right = totalWidth + spacing;
             long bottom = top + ((i + 1) * totalHeight / zoneCount) - (i * totalHeight / zoneCount);
 
-            if (!TryAdd(zones, new Zone(i, new PixelRect(spacing, (int)top, (int)right, (int)bottom))))
+            if (!TryAdd(zones, indexes, new Zone(i, new PixelRect(spacing, (int)top, (int)right, (int)bottom))))
             {
                 return [];
             }
@@ -136,7 +160,7 @@ public static class ZoneCalculator
     /// <summary>Equal-width columns, sized so they sum exactly to the work area less the spacing.</summary>
     public static IReadOnlyList<Zone> Columns(int workAreaWidth, int workAreaHeight, int zoneCount, int spacing)
     {
-        if (zoneCount <= 0)
+        if (zoneCount is <= 0 or > LayoutSpec.MaxZoneCount)
         {
             return [];
         }
@@ -145,13 +169,14 @@ public static class ZoneCalculator
         long totalHeight = workAreaHeight - (spacing * 2L);
         long left = spacing;
         List<Zone> zones = [];
+        HashSet<int> indexes = [];
 
         for (int i = 0; i < zoneCount; i++)
         {
             long right = left + ((i + 1) * totalWidth / zoneCount) - (i * totalWidth / zoneCount);
             long bottom = totalHeight + spacing;
 
-            if (!TryAdd(zones, new Zone(i, new PixelRect((int)left, spacing, (int)right, (int)bottom))))
+            if (!TryAdd(zones, indexes, new Zone(i, new PixelRect((int)left, spacing, (int)right, (int)bottom))))
             {
                 return [];
             }
@@ -165,7 +190,7 @@ public static class ZoneCalculator
     /// <summary>The most square grid that fits the zone count. The last zone absorbs any leftover cells.</summary>
     public static IReadOnlyList<Zone> EvenGrid(int workAreaWidth, int workAreaHeight, int zoneCount, int spacing)
     {
-        if (zoneCount <= 0)
+        if (zoneCount is <= 0 or > LayoutSpec.MaxZoneCount)
         {
             return [];
         }
@@ -222,7 +247,8 @@ public static class ZoneCalculator
 
     /// <summary>
     /// Zones for a grid. Each zone spans the cells that share its index, starting from its top-left cell, with full
-    /// spacing at the work area's edges and half spacing between zones.
+    /// spacing at the work area's edges and half spacing between zones. Returns no zones when the grid has more than
+    /// <see cref="LayoutSpec.MaxZoneCount"/> rows or columns, or a zone index of that or more.
     /// </summary>
     public static IReadOnlyList<Zone> CalculateGridZones(int workAreaWidth, int workAreaHeight, GridLayoutInfo grid, int spacing)
     {
@@ -237,6 +263,7 @@ public static class ZoneCalculator
         (long[]? columnStart, long[]? columnEnd) = Extents(grid.ColumnPercents, workAreaWidth);
         IReadOnlyList<IReadOnlyList<int>> map = grid.CellChildMap;
         List<Zone> zones = [];
+        HashSet<int> indexes = [];
 
         for (int row = 0; row < grid.Rows; row++)
         {
@@ -266,7 +293,7 @@ public static class ZoneCalculator
                 long left = columnStart[col] + (col == 0 ? spacing : spacing / 2);
                 long right = columnEnd[maxCol] - (maxCol == grid.Columns - 1 ? spacing : spacing / 2);
 
-                if (!TryAdd(zones, new Zone(index, new PixelRect((int)left, (int)top, (int)right, (int)bottom))))
+                if (!TryAdd(zones, indexes, new Zone(index, new PixelRect((int)left, (int)top, (int)right, (int)bottom))))
                 {
                     return [];
                 }
@@ -279,13 +306,13 @@ public static class ZoneCalculator
     /// <summary>
     /// Scales canvas zones from the reference work area to the actual one. FancyZones converts the work area to
     /// logical pixels and each zone back to physical pixels with the monitor's DPI; the two conversions cancel, so
-    /// only the scaling remains.
+    /// only the scaling remains. Returns no zones when there are more than <see cref="LayoutSpec.MaxZoneCount"/>.
     /// </summary>
     public static IReadOnlyList<Zone> Canvas(CanvasLayoutInfo canvas, int workAreaWidth, int workAreaHeight)
     {
         ArgumentNullException.ThrowIfNull(canvas);
 
-        if (canvas.ReferenceWidth <= 0 || canvas.ReferenceHeight <= 0)
+        if (canvas.ReferenceWidth <= 0 || canvas.ReferenceHeight <= 0 || canvas.Zones.Count > LayoutSpec.MaxZoneCount)
         {
             return [];
         }
@@ -293,6 +320,7 @@ public static class ZoneCalculator
         float width = workAreaWidth;
         float height = workAreaHeight;
         List<Zone> zones = [];
+        HashSet<int> indexes = [];
 
         foreach (CanvasZone zone in canvas.Zones)
         {
@@ -302,7 +330,7 @@ public static class ZoneCalculator
             float zoneHeight = zone.Height * height / canvas.ReferenceHeight;
 
             var rect = new PixelRect((int)x, (int)y, (int)(x + zoneWidth), (int)(y + zoneHeight));
-            if (!TryAdd(zones, new Zone(zones.Count, rect)))
+            if (!TryAdd(zones, indexes, new Zone(zones.Count, rect)))
             {
                 return [];
             }
@@ -320,7 +348,14 @@ public static class ZoneCalculator
         grid.RowPercents.Count == grid.Rows &&
         grid.ColumnPercents.Count == grid.Columns &&
         grid.CellChildMap.Count == grid.Rows &&
-        grid.CellChildMap.All(row => row.Count == grid.Columns);
+        grid.CellChildMap.All(row => row.Count == grid.Columns) &&
+        !ExceedsMaxZoneCount(grid);
+
+    // Zone indexes run from 0, so capping rows, columns, and indexes caps the zones and the cells walked to find them.
+    private static bool ExceedsMaxZoneCount(GridLayoutInfo grid) =>
+        grid.Rows > LayoutSpec.MaxZoneCount ||
+        grid.Columns > LayoutSpec.MaxZoneCount ||
+        grid.CellChildMap.Any(row => row.Any(index => index >= LayoutSpec.MaxZoneCount));
 
     // Start and end of each band. Computing both from the running total makes the bands sum exactly to the extent.
     private static (long[] Start, long[] End) Extents(IReadOnlyList<int> percents, int extent)
@@ -340,7 +375,7 @@ public static class ZoneCalculator
     }
 
     // Mirrors FancyZones: one invalid or duplicate zone invalidates the whole layout.
-    private static bool TryAdd(List<Zone> zones, Zone zone)
+    private static bool TryAdd(List<Zone> zones, HashSet<int> indexes, Zone zone)
     {
         PixelRect rect = zone.Rect;
         bool valid = zone.Index >= 0 &&
@@ -351,7 +386,7 @@ public static class ZoneCalculator
             rect.Width >= 0 &&
             rect.Height >= 0;
 
-        if (!valid || zones.Exists(z => z.Index == zone.Index))
+        if (!valid || !indexes.Add(zone.Index))
         {
             return false;
         }
