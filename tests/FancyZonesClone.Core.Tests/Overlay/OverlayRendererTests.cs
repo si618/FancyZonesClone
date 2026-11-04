@@ -49,11 +49,11 @@ public class OverlayRendererTests
     public async Task Render_ZoneNumbersOn_DrawsNumberPixelsAtTheCentre()
     {
         // Arrange
-        uint[] pixels = new uint[100 * 100];
-        var zoneSet = new ZoneSet([new Zone(0, new PixelRect(0, 0, 100, 100))], sensitivityRadius: 0);
+        uint[] pixels = new uint[300 * 300];
+        var zoneSet = new ZoneSet([new Zone(0, new PixelRect(0, 0, 300, 300))], sensitivityRadius: 0);
 
         // Act
-        OverlayRenderer.Render(pixels, 100, 100, zoneSet, [], _style with { ShowNumbers = true });
+        OverlayRenderer.Render(pixels, 300, 300, zoneSet, [], _style with { ShowNumbers = true });
 
         // Assert
         await Assert.That(pixels).Contains(0xFF000000u);
@@ -107,14 +107,57 @@ public class OverlayRendererTests
     }
 
     [Test]
-    [Arguments(100, 100, 2)]
-    [Arguments(2100, 1477, 35)]
-    public async Task NumberScale_ZoneSize_IsASixthOfTheSmallerSideInGlyphRows(int width, int height, int expected)
+    [Arguments(40, 40, 12)]
+    [Arguments(100, 100, 16)]
+    [Arguments(2112, 1477, 246)]
+    public async Task NumberHeight_ZoneSize_IsASixthOfTheSmallerSideAndAtLeastTheMinimum(int width, int height, int expected)
     {
         // Act
-        int scale = OverlayRenderer.NumberScale(PixelRect.FromSize(0, 0, width, height));
+        int numberHeight = OverlayRenderer.NumberHeight(PixelRect.FromSize(0, 0, width, height));
 
         // Assert
-        await Assert.That(scale).IsEqualTo(expected);
+        await Assert.That(numberHeight).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task Render_ZoneNumbersOn_AntiAliasesTheNumberEdges()
+    {
+        // Arrange
+        uint[] pixels = new uint[300 * 300];
+        var zoneSet = new ZoneSet([new Zone(0, new PixelRect(0, 0, 300, 300))], sensitivityRadius: 0);
+
+        // Act
+        OverlayRenderer.Render(pixels, 300, 300, zoneSet, [], _style with { ShowNumbers = true });
+
+        // Assert
+        uint[] blended = [.. pixels.Where(pixel => pixel is not (0x80000080u or 0xFF000000u or 0xFFFFFFFFu))];
+        await Assert.That(blended).IsNotEmpty();
+        await Assert.That(blended.All(pixel => pixel >> 24 is >= 0x80 and < 0xFF)).IsTrue();
+    }
+
+    [Test]
+    [Arguments(1)]
+    [Arguments(2)]
+    [Arguments(3)]
+    [Arguments(4)]
+    [Arguments(5)]
+    [Arguments(6)]
+    [Arguments(7)]
+    [Arguments(8)]
+    [Arguments(9)]
+    [Arguments(10)]
+    public async Task Render_EachZoneNumber_DrawsSolidStrokesInsideTheNumberBox(int number)
+    {
+        // Arrange
+        uint[] pixels = new uint[300 * 300];
+        var zoneSet = new ZoneSet([new Zone(number - 1, new PixelRect(0, 0, 300, 300))], sensitivityRadius: 0);
+
+        // Act
+        OverlayRenderer.Render(pixels, 300, 300, zoneSet, [], _style with { ShowNumbers = true });
+
+        // Assert
+        int[] inked = [.. Enumerable.Range(0, pixels.Length).Where(i => pixels[i] == 0xFF000000u)];
+        await Assert.That(inked.Length).IsGreaterThan(100);
+        await Assert.That(inked.All(i => i / 300 is >= 125 and < 175)).IsTrue();
     }
 }

@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using FancyZonesClone.Core.Geometry;
 using FancyZonesClone.Core.Layouts;
@@ -13,24 +14,8 @@ public static class OverlayRenderer
     /// <summary>Border thickness, in pixels.</summary>
     public const int BorderThickness = 2;
 
-    // 5x7 bitmap digits, one byte per row, the high five bits used.
-    private static readonly byte[][] _digits =
-    [
-        [0x70, 0x88, 0x98, 0xA8, 0xC8, 0x88, 0x70],
-        [0x20, 0x60, 0x20, 0x20, 0x20, 0x20, 0x70],
-        [0x70, 0x88, 0x08, 0x10, 0x20, 0x40, 0xF8],
-        [0xF8, 0x10, 0x20, 0x10, 0x08, 0x88, 0x70],
-        [0x10, 0x30, 0x50, 0x90, 0xF8, 0x10, 0x10],
-        [0xF8, 0x80, 0xF0, 0x08, 0x08, 0x88, 0x70],
-        [0x30, 0x40, 0x80, 0xF0, 0x88, 0x88, 0x70],
-        [0xF8, 0x08, 0x10, 0x20, 0x40, 0x40, 0x40],
-        [0x70, 0x88, 0x88, 0x70, 0x88, 0x88, 0x70],
-        [0x70, 0x88, 0x88, 0x78, 0x08, 0x10, 0x60],
-    ];
-
-    private const int GlyphWidth = 5;
-    private const int GlyphHeight = 7;
-    private const int GlyphGap = 1;
+    /// <summary>The smallest zone number height, in pixels.</summary>
+    public const int MinimumNumberHeight = 12;
 
     /// <summary>
     /// Clears <paramref name="pixels"/> to transparent and draws each zone: a translucent fill, a border, and its
@@ -67,34 +52,123 @@ public static class OverlayRenderer
         }
     }
 
-    /// <summary>The pixel scale of the zone number for a zone: about a sixth of its smaller side, at least 2.</summary>
-    public static int NumberScale(PixelRect zone) => Math.Max(2, Math.Min(zone.Width, zone.Height) / 6 / GlyphHeight);
+    /// <summary>The height of the zone number for a zone, in pixels: a sixth of its smaller side, at least 12.</summary>
+    public static int NumberHeight(PixelRect zone) => Math.Max(MinimumNumberHeight, Math.Min(zone.Width, zone.Height) / 6);
 
     private static void DrawNumber(Span<uint> pixels, int stride, PixelRect bounds, PixelRect zone, int value, uint color)
     {
         string text = value.ToString(CultureInfo.InvariantCulture);
-        int scale = NumberScale(zone);
-        int textWidth = ((text.Length * (GlyphWidth + GlyphGap)) - GlyphGap) * scale;
-        int originX = zone.Center.X - (textWidth / 2);
-        int originY = zone.Center.Y - (GlyphHeight * scale / 2);
+        float size = NumberHeight(zone);
+        float textWidth = (((text.Length - 1) * StrokeDigits.Advance) + StrokeDigits.Width) * size;
+        float originX = zone.Center.X - (textWidth / 2);
+        float originY = zone.Center.Y - (size / 2);
+        float halfStroke = StrokeDigits.StrokeWidth * size / 2;
 
-        for (int c = 0; c < text.Length; c++)
+        // One extra pixel each side holds the anti-aliased edge.
+        PixelRect box = new PixelRect(
+            (int)MathF.Floor(originX) - 1,
+            (int)MathF.Floor(originY) - 1,
+            (int)MathF.Ceiling(originX + textWidth) + 1,
+            (int)MathF.Ceiling(originY + size) + 1).Intersect(bounds);
+        if (box.IsEmpty)
         {
-            byte[] glyph = _digits[text[c] - '0'];
-            int glyphX = originX + (c * (GlyphWidth + GlyphGap) * scale);
+            return;
+        }
 
-            for (int row = 0; row < GlyphHeight; row++)
+        int length = box.Width * box.Height;
+        float[] coverage = ArrayPool<float>.Shared.Rent(length);
+        try
+        {
+            Array.Clear(coverage, 0, length);
+
+            for (int c = 0; c < text.Length; c++)
             {
-                for (int col = 0; col < GlyphWidth; col++)
+                float glyphX = originX + (c * StrokeDigits.Advance * size);
+                foreach (Segment segment in StrokeDigits.Glyph(text[c] - '0'))
                 {
-                    if ((glyph[row] & (0x80 >> col)) != 0)
+                    Stroke(
+                        coverage,
+                        box,
+                        glyphX + (segment.X1 * size),
+                        originY + (segment.Y1 * size),
+                        glyphX + (segment.X2 * size),
+                        originY + (segment.Y2 * size),
+                        halfStroke);
+                }
+            }
+
+            for (int y = 0; y < box.Height; y++)
+            {
+                Span<uint> row = pixels.Slice(((box.Top + y) * stride) + box.Left, box.Width);
+                for (int x = 0; x < box.Width; x++)
+                {
+                    float alpha = coverage[(y * box.Width) + x];
+                    if (alpha > 0)
                     {
-                        var cell = PixelRect.FromSize(glyphX + (col * scale), originY + (row * scale), scale, scale);
-                        Fill(pixels, stride, bounds, cell, color);
+                        row[x] = Blend(row[x], color, alpha);
                     }
                 }
             }
         }
+        finally
+        {
+            ArrayPool<float>.Shared.Return(coverage);
+        }
+    }
+
+    /// <summary>
+    /// Raises <paramref name="coverage"/> to the coverage of a round-capped stroke from (ax, ay) to (bx, by), sampled
+    /// at pixel centres. Coverage falls from 1 to 0 across the pixel at the stroke's edge.
+    /// </summary>
+    private static void Stroke(float[] coverage, PixelRect box, float ax, float ay, float bx, float by, float halfStroke)
+    {
+        float reach = halfStroke + 1;
+        PixelRect area = new PixelRect(
+            (int)MathF.Floor(MathF.Min(ax, bx) - reach),
+            (int)MathF.Floor(MathF.Min(ay, by) - reach),
+            (int)MathF.Ceiling(MathF.Max(ax, bx) + reach),
+            (int)MathF.Ceiling(MathF.Max(ay, by) + reach)).Intersect(box);
+
+        float dx = bx - ax;
+        float dy = by - ay;
+        float lengthSquared = (dx * dx) + (dy * dy);
+
+        for (int y = area.Top; y < area.Bottom; y++)
+        {
+            for (int x = area.Left; x < area.Right; x++)
+            {
+                float px = x + 0.5f - ax;
+                float py = y + 0.5f - ay;
+                float t = lengthSquared > 0 ? Math.Clamp(((px * dx) + (py * dy)) / lengthSquared, 0, 1) : 0;
+                float ex = px - (t * dx);
+                float ey = py - (t * dy);
+                float alpha = Math.Clamp(halfStroke + 0.5f - MathF.Sqrt((ex * ex) + (ey * ey)), 0, 1);
+
+                int index = ((y - box.Top) * box.Width) + (x - box.Left);
+                coverage[index] = MathF.Max(coverage[index], alpha);
+            }
+        }
+    }
+
+    /// <summary>Composites an opaque premultiplied <paramref name="source"/> over <paramref name="destination"/> at <paramref name="coverage"/>.</summary>
+    private static uint Blend(uint destination, uint source, float coverage)
+    {
+        int alpha = (int)MathF.Round(coverage * byte.MaxValue, MidpointRounding.AwayFromZero);
+        if (alpha >= byte.MaxValue)
+        {
+            return source;
+        }
+
+        int inverse = byte.MaxValue - alpha;
+        uint result = 0;
+        for (int shift = 0; shift < 32; shift += 8)
+        {
+            int s = (int)((source >> shift) & 0xFF);
+            int d = (int)((destination >> shift) & 0xFF);
+            result |= (uint)(((s * alpha) + (d * inverse) + 127) / 255) << shift;
+        }
+
+        return result;
     }
 
     private static void Fill(Span<uint> pixels, int stride, PixelRect bounds, PixelRect rect, uint color)
