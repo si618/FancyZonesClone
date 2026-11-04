@@ -89,6 +89,12 @@ public static class PowerToysImporter
                 continue;
             }
 
+            if (ZoneCalculator.ExceedsMaxZoneCount(layout))
+            {
+                warnings.Add(string.Create(CultureInfo.InvariantCulture, $"Custom layout '{name}': more than {LayoutSpec.MaxZoneCount} zones; skipped."));
+                continue;
+            }
+
             config.CustomLayouts.Add(layout);
         }
     }
@@ -224,6 +230,11 @@ public static class PowerToysImporter
             ZoneCount = Int(element, "zone-count"),
             SensitivityRadius = Int(element, "sensitivity-radius", 20),
         };
+
+        if (Int(element, "zone-count") > LayoutSpec.MaxZoneCount)
+        {
+            warnings.Add(string.Create(CultureInfo.InvariantCulture, $"{context}: zone count {Int(element, "zone-count")} capped at {LayoutSpec.MaxZoneCount}."));
+        }
 
         if (kind != LayoutType.Custom)
         {
