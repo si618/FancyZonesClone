@@ -18,6 +18,7 @@ public sealed class App : Application, IDisposable
     private FancyZonesCloneConfig _config = new();
     private ZoneEngine? _engine;
     private LayoutsWindow? _layoutsWindow;
+    private bool _reporting;
 
     /// <inheritdoc/>
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -57,10 +58,25 @@ public sealed class App : Application, IDisposable
         e.Handled = true;
     }
 
-    private static void Report(string message)
+    // A message box runs a modal loop in which the engine's deferred work, such as a layout hotkey's save, can fail
+    // again. Trace those failures, but show only one box at a time.
+    private void Report(string message)
     {
         Trace.TraceWarning($"FancyZonesClone: {message}");
-        UserMessages.ShowWarning(message);
+        if (_reporting)
+        {
+            return;
+        }
+
+        _reporting = true;
+        try
+        {
+            UserMessages.ShowWarning(message);
+        }
+        finally
+        {
+            _reporting = false;
+        }
     }
 
     // An editor or antivirus can hold the file. The running config stays in effect either way.
@@ -147,6 +163,13 @@ public sealed class App : Application, IDisposable
 
     private void OnOpenConfig(object? sender, EventArgs e)
     {
+        // The file is missing only when every save so far has failed, and a text editor couldn't open it either.
+        if (!File.Exists(ConfigStore.DefaultPath))
+        {
+            Report($"{ConfigStore.DefaultPath} doesn't exist yet, because FancyZonesClone couldn't save it. Check that you can write to its folder.");
+            return;
+        }
+
         try
         {
             Process.Start(new ProcessStartInfo(ConfigStore.DefaultPath) { UseShellExecute = true })?.Dispose();
