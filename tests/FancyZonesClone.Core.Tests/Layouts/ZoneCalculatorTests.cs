@@ -240,5 +240,125 @@ public class ZoneCalculatorTests
         await Assert.That(zoneSet.IsEmpty).IsTrue();
     }
 
+    [Test]
+    [Arguments(129, 128)]
+    [Arguments(100_000, 128)]
+    [Arguments(int.MaxValue, 128)]
+    [Arguments(128, 128)]
+    [Arguments(-1, -1)]
+    public async Task LayoutSpec_ZoneCount_IsCappedAtMaxZoneCount(int requested, int expected)
+    {
+        // Act
+        var layout = new LayoutSpec { ZoneCount = requested };
+
+        // Assert
+        await Assert.That(layout.ZoneCount).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments(LayoutType.Focus)]
+    [Arguments(LayoutType.Columns)]
+    [Arguments(LayoutType.Rows)]
+    [Arguments(LayoutType.Grid)]
+    [Arguments(LayoutType.PriorityGrid)]
+    public async Task Calculate_TemplateWithHugeZoneCount_BuildsAtMostMaxZoneCountZones(LayoutType kind)
+    {
+        // Arrange
+        var layout = new LayoutSpec { Kind = kind, ZoneCount = int.MaxValue, ShowSpacing = false };
+
+        // Act
+        ZoneSet zoneSet = ZoneCalculator.Calculate(layout, custom: null, 3840, 2100);
+
+        // Assert
+        await Assert.That(zoneSet.Zones.Count).IsEqualTo(LayoutSpec.MaxZoneCount);
+    }
+
+    [Test]
+    [Arguments(LayoutType.Focus)]
+    [Arguments(LayoutType.Columns)]
+    [Arguments(LayoutType.Rows)]
+    [Arguments(LayoutType.Grid)]
+    [Arguments(LayoutType.PriorityGrid)]
+    public async Task TemplateMethod_ZoneCountAboveMax_ReturnsNoZones(LayoutType kind)
+    {
+        // Arrange
+        const int ZoneCount = LayoutSpec.MaxZoneCount + 1;
+
+        // Act
+        IReadOnlyList<Zone> zones = kind switch
+        {
+            LayoutType.Focus => ZoneCalculator.Focus(3840, 2100, ZoneCount),
+            LayoutType.Columns => ZoneCalculator.Columns(3840, 2100, ZoneCount, spacing: 0),
+            LayoutType.Rows => ZoneCalculator.Rows(3840, 2100, ZoneCount, spacing: 0),
+            LayoutType.Grid => ZoneCalculator.EvenGrid(3840, 2100, ZoneCount, spacing: 0),
+            LayoutType.PriorityGrid => ZoneCalculator.PriorityGrid(3840, 2100, ZoneCount, spacing: 0),
+            LayoutType.Blank or LayoutType.Custom or _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+
+        // Assert
+        await Assert.That(zones).IsEmpty();
+    }
+
+    [Test]
+    [Arguments(128, 128)]
+    [Arguments(129, 0)]
+    [Arguments(50_000, 0)]
+    public async Task Canvas_ZoneCount_BuildsZonesOnlyUpToMaxZoneCount(int zoneCount, int expected)
+    {
+        // Arrange
+        var canvas = new CanvasLayoutInfo
+        {
+            ReferenceWidth = 3840,
+            ReferenceHeight = 2100,
+            Zones = [.. Enumerable.Range(0, zoneCount).Select(i => new CanvasZone(i % 100, 0, 100, 100))],
+        };
+
+        // Act
+        IReadOnlyList<Zone> zones = ZoneCalculator.Canvas(canvas, 3840, 2100);
+
+        // Assert
+        await Assert.That(zones.Count).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments(1, 128, 128)]
+    [Arguments(1, 129, 0)]
+    [Arguments(129, 1, 0)]
+    public async Task CalculateGridZones_OneZonePerCell_BuildsZonesOnlyUpToMaxZoneCount(int rows, int columns, int expected)
+    {
+        // Arrange
+        var grid = new GridLayoutInfo
+        {
+            Rows = rows,
+            Columns = columns,
+            RowPercents = Shares(rows),
+            ColumnPercents = Shares(columns),
+            CellChildMap = [.. Enumerable.Range(0, rows).Select(r => (IReadOnlyList<int>)[.. Enumerable.Range(r * columns, columns)])],
+        };
+
+        // Act
+        IReadOnlyList<Zone> zones = ZoneCalculator.CalculateGridZones(3840, 2100, grid, spacing: 0);
+
+        // Assert
+        await Assert.That(zones.Count).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task CalculateGridZones_ZoneIndexAtMaxZoneCount_ReturnsNoZones()
+    {
+        // Arrange
+        var grid = new GridLayoutInfo { Rows = 1, Columns = 2, RowPercents = [10000], ColumnPercents = [5000, 5000], CellChildMap = [[0, LayoutSpec.MaxZoneCount]] };
+
+        // Act
+        IReadOnlyList<Zone> zones = ZoneCalculator.CalculateGridZones(1000, 1000, grid, spacing: 0);
+
+        // Assert
+        await Assert.That(zones).IsEmpty();
+    }
+
     private static PixelRect[] Rects(IEnumerable<Zone> zones) => [.. zones.Select(z => z.Rect)];
+
+    // Equal shares in ten-thousandths that sum to exactly 10000.
+    private static int[] Shares(int count) =>
+        [.. Enumerable.Range(0, count).Select(i => (ZoneCalculator.PercentMultiplier * (i + 1) / count) - (ZoneCalculator.PercentMultiplier * i / count))];
 }

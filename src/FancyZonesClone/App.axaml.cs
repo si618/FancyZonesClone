@@ -1,8 +1,10 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using FancyZonesClone.Core.Configuration;
 using FancyZonesClone.Core.Monitors;
 using FancyZonesClone.Views;
@@ -16,6 +18,7 @@ public sealed class App : Application, IDisposable
     private FancyZonesCloneConfig _config = new();
     private ZoneEngine? _engine;
     private LayoutsWindow? _layoutsWindow;
+    private bool _reporting;
 
     /// <inheritdoc/>
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -23,6 +26,8 @@ public sealed class App : Application, IDisposable
     /// <inheritdoc/>
     public override void OnFrameworkInitializationCompleted()
     {
+        Dispatcher.UIThread.UnhandledException += OnUnhandledException;
+
         (_config, string source) = ConfigLoader.Load();
         Trace.TraceInformation($"FancyZonesClone config: {source}");
 
@@ -46,7 +51,46 @@ public sealed class App : Application, IDisposable
         _engine = null;
     }
 
-    private void SaveConfig() => ConfigStore.Save(_config, ConfigStore.DefaultPath);
+    // A last resort for an exception no handler expected: trace it and keep snapping, instead of ending the process.
+    private static void OnUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        Trace.TraceError($"FancyZonesClone: unhandled exception: {e.Exception}");
+        e.Handled = true;
+    }
+
+    // A message box runs a modal loop in which the engine's deferred work, such as a layout hotkey's save, can fail
+    // again. Trace those failures, but show only one box at a time.
+    private void Report(string message)
+    {
+        Trace.TraceWarning($"FancyZonesClone: {message}");
+        if (_reporting)
+        {
+            return;
+        }
+
+        _reporting = true;
+        try
+        {
+            UserMessages.ShowWarning(message);
+        }
+        finally
+        {
+            _reporting = false;
+        }
+    }
+
+    // An editor or antivirus can hold the file. The running config stays in effect either way.
+    private void SaveConfig()
+    {
+        try
+        {
+            ConfigStore.Save(_config, ConfigStore.DefaultPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Report($"Couldn't save {ConfigStore.DefaultPath}, so your changes last only until FancyZonesClone exits. {ex.Message}");
+        }
+    }
 
     // Only the changed monitor's windows lose their zones; windows snapped elsewhere keep moving zone to zone.
     private void OnMonitorLayoutChanged(MonitorDescriptor monitor)
@@ -98,7 +142,17 @@ public sealed class App : Application, IDisposable
 
     private void OnImport(object? sender, EventArgs e)
     {
-        PowerToysImportResult result = ConfigLoader.ImportPowerToys();
+        PowerToysImportResult result;
+        try
+        {
+            result = ConfigLoader.ImportPowerToys();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Report($"Couldn't read FancyZones' files in {PowerToysFiles.DefaultFolder}, so the current config is unchanged. {ex.Message}");
+            return;
+        }
+
         foreach (string warning in result.Warnings)
         {
             Trace.TraceWarning($"FancyZonesClone import: {warning}");
@@ -107,8 +161,25 @@ public sealed class App : Application, IDisposable
         ReplaceConfig(result.Config, save: true);
     }
 
-    private void OnOpenConfig(object? sender, EventArgs e) =>
-        Process.Start(new ProcessStartInfo(ConfigStore.DefaultPath) { UseShellExecute = true })?.Dispose();
+    private void OnOpenConfig(object? sender, EventArgs e)
+    {
+        // The file is missing only when every save so far has failed, and a text editor couldn't open it either.
+        if (!File.Exists(ConfigStore.DefaultPath))
+        {
+            Report($"{ConfigStore.DefaultPath} doesn't exist yet, because FancyZonesClone couldn't save it. Check that you can write to its folder.");
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(ConfigStore.DefaultPath) { UseShellExecute = true })?.Dispose();
+        }
+        catch (Win32Exception ex)
+        {
+            // Most often no app is associated with .json.
+            Report($"Couldn't open {ConfigStore.DefaultPath}. Open it in a text editor instead. {ex.Message}");
+        }
+    }
 
     private void OnReload(object? sender, EventArgs e)
     {
