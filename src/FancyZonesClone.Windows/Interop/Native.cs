@@ -210,6 +210,13 @@ internal static unsafe partial class Native
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool DestroyWindow(nint hWnd);
 
+    // MessageBoxW
+    public const uint MB_ICONWARNING = 0x00000030;
+    public const uint MB_SETFOREGROUND = 0x00010000;
+
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial int MessageBoxW(nint hWnd, string lpText, string lpCaption, uint uType);
+
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool ShowWindow(nint hWnd, int nCmdShow);
