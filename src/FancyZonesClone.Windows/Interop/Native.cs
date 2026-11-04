@@ -10,6 +10,7 @@ namespace FancyZonesClone.Windows.Interop;
 internal static unsafe partial class Native
 {
     // WinEvent hooks
+    public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
     public const uint EVENT_SYSTEM_MOVESIZESTART = 0x000A;
     public const uint EVENT_SYSTEM_MOVESIZEEND = 0x000B;
     public const uint EVENT_OBJECT_DESTROY = 0x8001;
