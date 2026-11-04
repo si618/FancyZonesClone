@@ -257,9 +257,11 @@ internal static unsafe partial class Native
     [LibraryImport("kernel32.dll")]
     public static partial nint OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, uint dwProcessId);
 
-    [LibraryImport("kernel32.dll")]
+    public const int ERROR_INSUFFICIENT_BUFFER = 122;
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool QueryFullProcessImageNameW(nint hProcess, uint dwFlags, ref CharBuffer260 lpExeName, ref uint lpdwSize);
+    public static partial bool QueryFullProcessImageNameW(nint hProcess, uint dwFlags, char* lpExeName, ref uint lpdwSize);
 
     [LibraryImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
