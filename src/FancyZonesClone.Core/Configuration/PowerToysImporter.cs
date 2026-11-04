@@ -222,18 +222,19 @@ public static class PowerToysImporter
             return null;
         }
 
+        int zoneCount = Int(element, "zone-count");
         var spec = new LayoutSpec
         {
             Kind = kind,
             ShowSpacing = Bool(element, "show-spacing"),
             Spacing = Int(element, "spacing"),
-            ZoneCount = Int(element, "zone-count"),
+            ZoneCount = zoneCount,
             SensitivityRadius = Int(element, "sensitivity-radius", 20),
         };
 
-        if (Int(element, "zone-count") > LayoutSpec.MaxZoneCount)
+        if (zoneCount > LayoutSpec.MaxZoneCount)
         {
-            warnings.Add(string.Create(CultureInfo.InvariantCulture, $"{context}: zone count {Int(element, "zone-count")} capped at {LayoutSpec.MaxZoneCount}."));
+            warnings.Add(string.Create(CultureInfo.InvariantCulture, $"{context}: zone count {zoneCount} capped at {LayoutSpec.MaxZoneCount}."));
         }
 
         if (kind != LayoutType.Custom)
