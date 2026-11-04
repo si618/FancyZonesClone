@@ -33,9 +33,10 @@ public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings)
     {
         ArgumentNullException.ThrowIfNull(monitor);
 
-        // Out of GDI handles or memory, there's nothing to draw on: show nothing, and try again on the next call.
+        // An empty work area has nothing to draw, and out of GDI handles or memory there's nothing to draw on: show
+        // nothing, and try again on the next call.
         PixelRect area = monitor.WorkArea;
-        if (!EnsureWindow() || !EnsureSurface(area.Width, area.Height))
+        if (area.Width <= 0 || area.Height <= 0 || !EnsureWindow() || !EnsureSurface(area.Width, area.Height))
         {
             Hide();
             return;
@@ -129,7 +130,8 @@ public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings)
             nint bits = 0;
             nint memoryDc = Native.CreateCompatibleDC(screenDc);
             nint bitmap = memoryDc != 0 ? Native.CreateDIBSection(screenDc, header, Native.DIB_RGB_COLORS, out bits, 0, 0) : 0;
-            if (bitmap == 0 || bits == 0)
+            nint previousBitmap = bitmap != 0 && bits != 0 ? Native.SelectObject(memoryDc, bitmap) : 0;
+            if (previousBitmap == 0)
             {
                 // Release whatever was created, so a failure doesn't leak the handles it ran short of.
                 if (bitmap != 0)
@@ -142,12 +144,12 @@ public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings)
                     Native.DeleteDC(memoryDc);
                 }
 
-                return Fail(memoryDc == 0 ? "CreateCompatibleDC" : "CreateDIBSection");
+                return Fail(memoryDc == 0 ? "CreateCompatibleDC" : bitmap == 0 || bits == 0 ? "CreateDIBSection" : "SelectObject");
             }
 
             _memoryDc = memoryDc;
             _bitmap = bitmap;
-            _previousBitmap = Native.SelectObject(memoryDc, bitmap);
+            _previousBitmap = previousBitmap;
             _pixels = (uint*)bits;
             _width = width;
             _height = height;
