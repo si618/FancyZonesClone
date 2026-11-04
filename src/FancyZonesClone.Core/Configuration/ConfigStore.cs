@@ -20,22 +20,8 @@ public static class ConfigStore
     /// </summary>
     public static FancyZonesCloneConfig Deserialize(string json)
     {
-        FancyZonesCloneConfig? config;
-        try
-        {
-            config = JsonSerializer.Deserialize(json, ConfigJsonContext.Default.FancyZonesCloneConfig);
-        }
-        catch (InvalidOperationException ex)
-        {
-            // A null for a collection that the serialiser fills in place throws this, not JsonException.
-            throw new JsonException(ex.Message, ex);
-        }
-
-        if (config is null)
-        {
-            throw new JsonException("The config file is empty.");
-        }
-
+        FancyZonesCloneConfig config = JsonSerializer.Deserialize(json, ConfigJsonContext.Default.FancyZonesCloneConfig)
+            ?? throw new JsonException("The config file is empty.");
         RejectNullEntries(config);
         return config;
     }

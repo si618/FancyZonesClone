@@ -1,11 +1,11 @@
-using System.Text.Json.Serialization;
 using FancyZonesClone.Core.Layouts;
 
 namespace FancyZonesClone.Core.Configuration;
 
 /// <summary>
 /// Everything FancyZonesClone persists: behaviour, custom layouts, and which layout each monitor uses. The JSON
-/// serialiser fills the collections in place, so a key missing from a hand-edited file leaves them empty.
+/// serialiser sets a property only when its key is present, so a key missing from a hand-edited file keeps the
+/// default, and <c>RespectNullableAnnotations</c> rejects an explicit null.
 /// </summary>
 public sealed class FancyZonesCloneConfig
 {
@@ -19,12 +19,10 @@ public sealed class FancyZonesCloneConfig
     public FancyZonesCloneSettings Settings { get; set; } = new();
 
     /// <summary>User-defined layouts.</summary>
-    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
-    public IList<CustomLayout> CustomLayouts { get; } = [];
+    public IList<CustomLayout> CustomLayouts { get; set; } = [];
 
     /// <summary>The layout applied to each known monitor.</summary>
-    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
-    public IList<MonitorLayoutAssignment> Monitors { get; } = [];
+    public IList<MonitorLayoutAssignment> Monitors { get; set; } = [];
 
     /// <summary>The layout for a landscape monitor with no assignment of its own.</summary>
     public LayoutSpec DefaultHorizontalLayout { get; set; } = LayoutSpec.CreateDefault();
@@ -33,6 +31,5 @@ public sealed class FancyZonesCloneConfig
     public LayoutSpec DefaultVerticalLayout { get; set; } = new() { Kind = LayoutType.Rows, ZoneCount = 2 };
 
     /// <summary>Win+Ctrl+Alt+digit shortcuts that apply a custom layout to the active monitor.</summary>
-    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
-    public IList<LayoutHotkey> LayoutHotkeys { get; } = [];
+    public IList<LayoutHotkey> LayoutHotkeys { get; set; } = [];
 }

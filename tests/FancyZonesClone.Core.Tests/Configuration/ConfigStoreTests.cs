@@ -209,9 +209,14 @@ public class ConfigStoreTests
     [Arguments(/*lang=json*/ """{ "customLayouts": [ { "id": "6b7d1c1e-3f5a-4a63-9a0e-0f4c6c1d2e3f", "name": "G", "kind": "Grid", "grid": { "rows": 2, "columns": 1, "rowPercents": [5000, 5000], "columnPercents": [10000], "cellChildMap": [[0], null] } } ] }""")]
     [Arguments(/*lang=json*/ """{ "customLayouts": [ { "id": "6b7d1c1e-3f5a-4a63-9a0e-0f4c6c1d2e3f", "name": "G", "kind": "Grid", "grid": { "rows": 1, "columns": 1, "rowPercents": null, "columnPercents": [10000], "cellChildMap": [[0]] } } ] }""")]
     [Arguments(/*lang=json*/ """{ "customLayouts": [ { "id": "6b7d1c1e-3f5a-4a63-9a0e-0f4c6c1d2e3f", "name": "C", "kind": "Canvas", "canvas": { "referenceWidth": 100, "referenceHeight": 100, "zones": null } } ] }""")]
-    public async Task Deserialize_NullWhereAValueIsRequired_ThrowsJsonException(string json) =>
-        // Act and assert
-        await Assert.That(() => ConfigStore.Deserialize(json)).Throws<JsonException>();
+    public async Task Deserialize_NullWhereAValueIsRequired_ThrowsJsonException(string json)
+    {
+        // Act
+        Exception? thrown = Record(() => ConfigStore.Deserialize(json));
+
+        // Assert
+        await Assert.That(thrown).IsTypeOf<JsonException>();
+    }
 
     [Test]
     public async Task TryLoad_NullSection_ReturnsTheErrorInsteadOfTheConfig()
@@ -234,6 +239,22 @@ public class ConfigStoreTests
         finally
         {
             Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    // Returns what the action throws, or null, so a test can act and assert separately.
+    private static Exception? Record(Action action)
+    {
+        try
+        {
+            action();
+            return null;
+        }
+#pragma warning disable CA1031 // The test asserts the type of whatever is thrown, so it must catch everything.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            return ex;
         }
     }
 }
