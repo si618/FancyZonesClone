@@ -11,7 +11,13 @@ namespace FancyZonesClone.Windows;
 public static unsafe class WindowOperations
 {
     /// <summary>Reads the facts <see cref="WindowRules.Classify"/> needs.</summary>
-    public static WindowTraits ReadTraits(nint window)
+    public static WindowTraits ReadTraits(nint window) => ReadTraits(window, ProcessPath(window));
+
+    /// <summary>
+    /// Reads the facts <see cref="WindowRules.Classify"/> needs, with a process path read earlier. Every call it makes
+    /// reads window state without opening the process or sending a message, so it's quick enough for a keyboard hook.
+    /// </summary>
+    public static WindowTraits ReadTraits(nint window, string processPath)
     {
         uint style = (uint)Native.GetWindowLongPtr(window, Native.GWL_STYLE);
         uint exStyle = (uint)Native.GetWindowLongPtr(window, Native.GWL_EXSTYLE);
@@ -27,7 +33,7 @@ public static unsafe class WindowOperations
             HasCaption: (style & Native.WS_CAPTION) == Native.WS_CAPTION,
             HasMinimizeOrMaximizeBox: (style & (Native.WS_MINIMIZEBOX | Native.WS_MAXIMIZEBOX)) != 0,
             HasVisibleOwner: owner != 0 && Native.IsWindowVisible(owner),
-            ProcessPath: ProcessPath(window));
+            ProcessPath: processPath);
     }
 
     /// <summary>

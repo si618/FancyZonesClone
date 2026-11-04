@@ -35,10 +35,12 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
     private readonly OverlayWindow _overlay;
     private readonly DragController _drag;
     private readonly ZoneAssignments _assignments = new();
+    private readonly MonitorZoneCache _monitors = new();
     private readonly Queue<Action> _deferred = new();
 
     private nint _moveSizeHook;
     private nint _destroyHook;
+    private nint _foregroundHook;
     private nint _keyboardHook;
     private nuint _dragTimer;
     private nuint _deferTimer;
@@ -47,6 +49,11 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
 
     // The monitor under the cursor at the last drag sample, so a sample that stays on it skips describing it again.
     private MonitorDescriptor? _dragMonitor;
+
+    // The foreground window and its executable path, read when it came to the foreground, so the keyboard hook
+    // doesn't open its process.
+    private nint _foregroundWindow;
+    private string _foregroundProcessPath = "";
 
     /// <summary>Creates the engine.</summary>
     /// <param name="config">Returns the current configuration; read on every event, so edits apply at once.</param>
@@ -74,23 +81,44 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
         const uint Flags = Native.WINEVENT_OUTOFCONTEXT | Native.WINEVENT_SKIPOWNPROCESS;
         _moveSizeHook = Native.SetWinEventHook(Native.EVENT_SYSTEM_MOVESIZESTART, Native.EVENT_SYSTEM_MOVESIZEEND, 0, &OnWinEvent, 0, 0, Flags);
         _destroyHook = Native.SetWinEventHook(Native.EVENT_OBJECT_DESTROY, Native.EVENT_OBJECT_DESTROY, 0, &OnWinEvent, 0, 0, Flags);
+
+        // Not skipping this process: Win+arrow can move the layouts window too, so its path must be cached as well.
+        _foregroundHook = Native.SetWinEventHook(
+            Native.EVENT_SYSTEM_FOREGROUND, Native.EVENT_SYSTEM_FOREGROUND, 0, &OnWinEvent, 0, 0, Native.WINEVENT_OUTOFCONTEXT);
         _keyboardHook = Native.SetWindowsHookExW(Native.WH_KEYBOARD_LL, &OnKeyboard, Native.GetModuleHandleW(lpModuleName: null), 0);
 
-        if (_moveSizeHook == 0 || _destroyHook == 0 || _keyboardHook == 0)
+        if (_moveSizeHook == 0 || _destroyHook == 0 || _foregroundHook == 0 || _keyboardHook == 0)
         {
             Dispose();
             throw new InvalidOperationException(string.Create(CultureInfo.InvariantCulture, $"Couldn't install the window hooks (Win32 error {Marshal.GetLastPInvokeError()})."));
         }
+
+        RefreshMonitors();
+        TrackForeground(Native.GetForegroundWindow());
     }
 
     /// <inheritdoc/>
     public ZoneSet GetZoneSet(MonitorDescriptor monitor) => LayoutResolver.ZoneSetFor(_config(), monitor);
 
-    /// <summary>Forgets which zones windows occupy, such as after the configuration is reloaded.</summary>
-    public void ResetAssignments() => _assignments.Clear();
+    /// <summary>
+    /// Forgets which zones windows occupy and rereads every monitor's layout, such as after the configuration is
+    /// reloaded.
+    /// </summary>
+    public void ResetAssignments()
+    {
+        _assignments.Clear();
+        RefreshMonitors();
+    }
 
-    /// <summary>Forgets which zones windows on <paramref name="monitor"/> occupy, such as after its layout changes.</summary>
-    public void ResetAssignments(nint monitor) => _assignments.RemoveMonitor(monitor);
+    /// <summary>
+    /// Forgets which zones windows on <paramref name="monitor"/> occupy and rereads every monitor's layout, such as
+    /// after its layout changes.
+    /// </summary>
+    public void ResetAssignments(nint monitor)
+    {
+        _assignments.RemoveMonitor(monitor);
+        RefreshMonitors();
+    }
 
     /// <inheritdoc/>
     public void Dispose()
@@ -100,6 +128,7 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
         StopTimer(ref _flashTimer);
         Unhook(ref _moveSizeHook);
         Unhook(ref _destroyHook);
+        Unhook(ref _foregroundHook);
         if (_keyboardHook != 0)
         {
             Native.UnhookWindowsHookEx(_keyboardHook);
@@ -138,10 +167,36 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
         }
     }
 
-    private bool IsSnappable(nint window)
+    private bool IsSnappable(nint window) => IsSnappable(WindowOperations.ReadTraits(window));
+
+    private bool IsSnappable(WindowTraits traits)
     {
         FancyZonesCloneSettings settings = _config().Settings;
-        return WindowRules.Classify(WindowOperations.ReadTraits(window), settings.AllowChildWindowSnap, settings.ExcludedApps) == Processability.Processable;
+        return WindowRules.Classify(traits, settings.AllowChildWindowSnap, settings.ExcludedApps) == Processability.Processable;
+    }
+
+    // Describes every monitor and builds its zone set, outside the keyboard hook, which then only looks them up. It
+    // runs from Start and the app's handlers as well as from Guard, so it traps its own exceptions: a layout that
+    // can't be built leaves the cache empty, and Win+arrow passes through to Windows.
+#pragma warning disable CA1031 // Catch everything: an escaping exception would stop the app starting or end it.
+    private void RefreshMonitors()
+    {
+        try
+        {
+            _monitors.Refresh(Monitors.GetAll(), this);
+        }
+        catch (Exception ex)
+        {
+            _monitors.Clear();
+            Trace.TraceError($"FancyZonesClone: couldn't read the monitors' layouts: {ex}");
+        }
+    }
+#pragma warning restore CA1031
+
+    private void TrackForeground(nint window)
+    {
+        _foregroundWindow = window;
+        _foregroundProcessPath = window != 0 ? WindowOperations.ProcessPath(window) : "";
     }
 
     private void OnMoveSizeStart(nint window)
@@ -231,17 +286,7 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
 
         if (!ctrl && !alt && settings.OverrideSnapHotkeys && virtualKey is Native.VK_LEFT or Native.VK_RIGHT)
         {
-            // As FancyZones' ShouldProcessSnapHotkey does, take the key only when there are zones to move to.
-            // Otherwise it passes through and Windows' own snap runs.
-            nint window = Native.GetForegroundWindow();
-            if (window == 0 || !IsSnappable(window) || Monitors.FromWindow(window) is not { } monitor || GetZoneSet(monitor).IsEmpty)
-            {
-                return false;
-            }
-
-            HorizontalDirection direction = virtualKey == Native.VK_LEFT ? HorizontalDirection.Left : HorizontalDirection.Right;
-            Defer(() => MoveByKeyboard(window, monitor, direction));
-            return true;
+            return TakeSnapHotkey(virtualKey == Native.VK_LEFT ? HorizontalDirection.Left : HorizontalDirection.Right);
         }
 
         if (ctrl && alt && settings.QuickLayoutSwitch && DigitOf(virtualKey) is { } digit &&
@@ -259,6 +304,50 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
         }
 
         return false;
+    }
+
+    // As FancyZones' ShouldProcessSnapHotkey does, take Win+arrow only when there are zones to move to. Otherwise it
+    // passes through and Windows' own snap runs. Windows removes a low-level hook that misses LowLevelHooksTimeout,
+    // so this reads only cached facts and cheap window and monitor state. On a cache miss, the key passes through and
+    // the cache is refreshed for the next press.
+    private bool TakeSnapHotkey(HorizontalDirection direction)
+    {
+        nint window = Native.GetForegroundWindow();
+        if (window == 0)
+        {
+            return false;
+        }
+
+        if (window != _foregroundWindow)
+        {
+            Defer(() => TrackForeground(window));
+            return false;
+        }
+
+        if (!IsSnappable(WindowOperations.ReadTraits(window, _foregroundProcessPath)))
+        {
+            return false;
+        }
+
+        nint handle = Monitors.HandleFromWindow(window);
+        if (!Monitors.TryGetAreas(handle, out PixelRect monitorArea, out PixelRect workArea))
+        {
+            return false;
+        }
+
+        if (_monitors.Find(handle, monitorArea, workArea, out bool hasZones) is not { } monitor)
+        {
+            Defer(RefreshMonitors);
+            return false;
+        }
+
+        if (!hasZones)
+        {
+            return false;
+        }
+
+        Defer(() => MoveByKeyboard(window, monitor, direction));
+        return true;
     }
 
     private static int? DigitOf(uint virtualKey) => virtualKey switch
@@ -287,6 +376,7 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
 
         LayoutResolver.Assign(_config(), monitor.Identity, LayoutSpec.ForCustom(customLayoutId));
         _assignments.RemoveMonitor(monitor.Handle);
+        RefreshMonitors();
         _configChanged();
 
         // Flash the new zones, as FancyZones does on a quick layout switch.
@@ -348,6 +438,9 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
                     break;
                 case Native.EVENT_OBJECT_DESTROY:
                     engine.OnWindowDestroyed(window);
+                    break;
+                case Native.EVENT_SYSTEM_FOREGROUND:
+                    engine.TrackForeground(window);
                     break;
                 default:
                     break;
