@@ -175,8 +175,23 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
         return WindowRules.Classify(traits, settings.AllowChildWindowSnap, settings.ExcludedApps) == Processability.Processable;
     }
 
-    // Describes every monitor and builds its zone set, outside the keyboard hook, which then only looks them up.
-    private void RefreshMonitors() => _monitors.Refresh(Monitors.GetAll(), this);
+    // Describes every monitor and builds its zone set, outside the keyboard hook, which then only looks them up. It
+    // runs from Start and the app's handlers as well as from Guard, so it traps its own exceptions: a layout that
+    // can't be built leaves the cache empty, and Win+arrow passes through to Windows.
+#pragma warning disable CA1031 // Catch everything: an escaping exception would stop the app starting or end it.
+    private void RefreshMonitors()
+    {
+        try
+        {
+            _monitors.Refresh(Monitors.GetAll(), this);
+        }
+        catch (Exception ex)
+        {
+            _monitors.Clear();
+            Trace.TraceError($"FancyZonesClone: couldn't read the monitors' layouts: {ex}");
+        }
+    }
+#pragma warning restore CA1031
 
     private void TrackForeground(nint window)
     {

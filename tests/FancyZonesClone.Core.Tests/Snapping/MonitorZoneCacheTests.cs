@@ -90,6 +90,20 @@ public class MonitorZoneCacheTests
         await Assert.That(hasZones).IsTrue();
     }
 
+    [Test]
+    public async Task Clear_AfterRefresh_FindsNothing()
+    {
+        // Arrange
+        var cache = new MonitorZoneCache();
+        cache.Refresh([_left], new ZonesOnlyOn(_left.Handle));
+
+        // Act
+        cache.Clear();
+
+        // Assert
+        await Assert.That(cache.Find(_left.Handle, _left.MonitorArea, _left.WorkArea, out _)).IsNull();
+    }
+
     private sealed class ZonesOnlyOn(nint handle) : IZoneSetSource
     {
         public ZoneSet GetZoneSet(MonitorDescriptor monitor) =>

@@ -25,6 +25,9 @@ public sealed class MonitorZoneCache
         }
     }
 
+    /// <summary>Empties the cache, so every lookup misses until the next <see cref="Refresh"/>.</summary>
+    public void Clear() => _entries.Clear();
+
     /// <summary>
     /// Looks up the monitor with <paramref name="handle"/>. Returns null when it isn't cached, or when its areas no
     /// longer match the cached ones, such as after a resolution change or a moved taskbar: the cache is then stale.
