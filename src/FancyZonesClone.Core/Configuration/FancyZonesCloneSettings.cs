@@ -39,5 +39,5 @@ public sealed class FancyZonesCloneSettings
     public string ZoneNumberColor { get; set; } = "#000000";
 
     /// <summary>Executable paths, or parts of them, that are never snapped. Matching ignores case.</summary>
-    public IList<string> ExcludedApps { get; init; } = [];
+    public IList<string> ExcludedApps { get; set; } = [];
 }
