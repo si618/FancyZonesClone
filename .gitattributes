@@ -1,0 +1,2 @@
+# Check out text files with LF on every platform, as .editorconfig requires, so dotnet format passes on Windows.
+* text=auto eol=lf
