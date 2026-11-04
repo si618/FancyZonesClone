@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Platform-neutral on purpose: the FancyZones algorithms, the drag state machine, and the overlay
+         rasteriser carry no Win32 or Avalonia reference, so their tests run on any OS. -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FancyZonesClone.Core.Tests" />
+  </ItemGroup>
+
+</Project>

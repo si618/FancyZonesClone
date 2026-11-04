@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+    <!-- TUnit test projects build to an executable on Microsoft.Testing.Platform. -->
+    <OutputType>Exe</OutputType>
+    <!-- house:simon-mckenna begin -->
+    <!-- **House:** CA1707 (no underscores in member names) contradicts the test-naming convention
+         UnitOfWork_Scenario_ExpectedBehaviour. The convention wins in test projects. -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <!-- house:simon-mckenna end -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+    <ProjectReference Include="../../src/FancyZonesClone.Core/FancyZonesClone.Core.csproj" />
+  </ItemGroup>
+
+</Project>

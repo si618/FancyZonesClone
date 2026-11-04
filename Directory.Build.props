@@ -1,0 +1,60 @@
+<!-- From the awesome-humans/dotnet template (house profile: simon-mckenna). Every project inherits these settings.
+     Override one in a project only with a recorded reason. -->
+<Project>
+
+  <PropertyGroup Label="Output layout">
+    <!-- One artifacts/<type>/<project>/<pivot> root for all build output. Set it here or on the
+         command line: MSBuild reads it before project evaluation, so a .csproj setting fails with
+         NETSDK1199 (opinions/project-structure.md). -->
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Targets and language">
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <!-- Promotes nullable warnings to errors, so the compiler enforces annotations (opinions/csharp.md) -->
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Lets the net10.0-windows projects build on Linux and macOS, though not run, so the whole
+         solution compiles in WSL and the Core tests run there. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Quality gates">
+    <!-- house:simon-mckenna begin -->
+    <!-- **House:** Always on, not only in CI, so a warning fails the build as soon as it's introduced. Suppress with NoWarn or a pragma only with a comment that explains why. -->
+    <!-- house:simon-mckenna end -->
+    <!-- This includes NuGet Audit. NU1901 to NU1904 fail restore on purpose, even on a branch nobody
+         changed, on the day an advisory lands against the dependency graph. To suppress one advisory,
+         use NuGetAuditSuppress with its URL and a reason. Never list the codes in WarningsNotAsErrors
+         (opinions/ci.md). -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Packaging hygiene">
+    <!-- Central Package Management (Directory.Packages.props) pins each package's version, not its content.
+         packages.lock.json also records each package's hash, so restore fails if a feed serves different bytes for a
+         pinned version. To get that check, set this to true and restore with locked mode in CI (opinions/ci.md). -->
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- The doc file feeds IDE tooltips and OpenAPI XML comments. CS1591 is exempt, so undocumented internals don't fail the build. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup Label="Analyzers">
+    <!-- Correctness rules that the SDK set misses, such as culture-sensitive strings,
+         CancellationToken forwarding, and async pitfalls (opinions/csharp.md). The version is
+         pinned in Directory.Packages.props. -->
+    <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+  </ItemGroup>
+
+  <PropertyGroup Label="Deterministic builds">
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+</Project>

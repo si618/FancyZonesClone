@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FancyZonesClone.Core.Presentation"
+        xmlns:views="using:FancyZonesClone.Views"
+        x:Class="FancyZonesClone.Views.LayoutsWindow"
+        x:DataType="views:LayoutsWindow"
+        Title="FancyZonesClone layouts"
+        Icon="/Assets/icon.png"
+        Width="760" Height="560"
+        WindowStartupLocation="CenterScreen">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,12" TextWrapping="Wrap" Opacity="0.8"
+               Text="Pick a layout for each monitor. Changes apply at once. Hold Shift while dragging a window to snap it; add Ctrl to span zones." />
+    <ScrollViewer>
+      <ItemsControl ItemsSource="{Binding Rows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:MonitorLayoutViewModel">
+            <Border Margin="0,0,0,12" Padding="12" CornerRadius="6" BorderThickness="1"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+              <Grid ColumnDefinitions="*,280" RowDefinitions="Auto,Auto">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding Choices}" SelectedItem="{Binding SelectedChoice}" />
+                <views:ZonePreview Grid.Row="1" Grid.ColumnSpan="2" Height="140" Margin="0,12,0,0"
+                                   Zones="{Binding Zones}"
+                                   ReferenceWidth="{Binding WorkAreaWidth}"
+                                   ReferenceHeight="{Binding WorkAreaHeight}" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

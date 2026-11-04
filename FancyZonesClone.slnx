@@ -1,0 +1,29 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FancyZonesClone.Core/FancyZonesClone.Core.csproj" />
+    <Project Path="src/FancyZonesClone.Windows/FancyZonesClone.Windows.csproj" />
+    <Project Path="src/FancyZonesClone/FancyZonesClone.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <File Path="tests/.editorconfig" />
+    <Project Path="tests/FancyZonesClone.Core.Tests/FancyZonesClone.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/build/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+  </Folder>
+  <Folder Name="/ci/">
+    <File Path=".github/workflows/ci.yml" />
+    <File Path=".github/workflows/release.yml" />
+    <File Path="renovate.json" />
+  </Folder>
+  <Folder Name="/docs/">
+    <File Path=".gitignore" />
+    <File Path="AGENTS.md" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+    <File Path="THIRD-PARTY-NOTICES.md" />
+  </Folder>
+</Solution>

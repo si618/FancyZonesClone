@@ -1,0 +1,11 @@
+# All build, publish, and package output: Directory.Build.props sets UseArtifactsOutput, so no project writes
+# bin/ or obj/ of its own.
+artifacts/
+
+# TUnit's HTML and JSON test reports, written beside the solution by every test run
+TestResults/
+
+# IDE state
+.idea/
+.vs/
+*.user

@@ -1,0 +1,27 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="FancyZonesClone.App"
+             RequestedThemeVariant="Default">
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
+
+  <TrayIcon.Icons>
+    <TrayIcons>
+      <TrayIcon Icon="/Assets/icon.png" ToolTipText="FancyZonesClone" Clicked="OnTrayClicked">
+        <TrayIcon.Menu>
+          <NativeMenu>
+            <NativeMenuItem Header="Layouts…" Click="OnLayouts" />
+            <NativeMenuItem Header="Pause" ToggleType="CheckBox" Click="OnPause" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Re-import from PowerToys" Click="OnImport" />
+            <NativeMenuItem Header="Open config file" Click="OnOpenConfig" />
+            <NativeMenuItem Header="Reload config" Click="OnReload" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Exit" Click="OnExit" />
+          </NativeMenu>
+        </TrayIcon.Menu>
+      </TrayIcon>
+    </TrayIcons>
+  </TrayIcon.Icons>
+</Application>

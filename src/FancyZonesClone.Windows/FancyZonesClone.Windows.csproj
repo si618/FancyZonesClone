@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Win32 hooks, monitors, and window placement exist only on Windows. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- LibraryImport generates blittable marshalling stubs, which need unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../FancyZonesClone.Core/FancyZonesClone.Core.csproj" />
+  </ItemGroup>
+
+</Project>

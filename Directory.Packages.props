@@ -1,0 +1,30 @@
+<!-- Central Package Management: every PackageReference in the repository takes its version from here.
+     Each version was the latest stable one on nuget.org on 2026-11-04. -->
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="UI">
+    <PackageVersion Include="Avalonia" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.5" />
+  </ItemGroup>
+
+  <ItemGroup Label="Build">
+    <PackageVersion Include="MinVer" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Analyzers">
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.320" />
+  </ItemGroup>
+
+  <!-- No Microsoft.Testing.Platform entry: TUnit brings its own compatible version, and a pin
+       here would override it through transitive pinning. -->
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="TUnit" Version="1.79.0" />
+  </ItemGroup>
+
+</Project>

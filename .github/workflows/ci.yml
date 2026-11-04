@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: the build job only reads the repository.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Windows, because the Native AOT link step needs the MSVC toolchain, which windows-latest provides.
+    runs-on: windows-latest
+    steps:
+      # Full history: MinVer needs the tags to version the build.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release -warnaserror
+      - run: dotnet format --no-restore --verify-no-changes
+      - run: dotnet test --no-build --configuration Release --report-trx --results-directory artifacts/test-results
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: test-results
+          path: artifacts/test-results
+      # Proves the Native AOT build still links on every change, which can't be checked without MSVC locally.
+      # Native AOT compiles at publish time for one runtime identifier, so this step can't reuse the portable build
+      # above: that's the one exception to publishing with --no-build. Releases come from release.yml.
+      - run: dotnet publish src/FancyZonesClone --configuration Release --runtime win-x64
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: FancyZonesClone-win-x64-unreleased
+          path: |
+            artifacts/publish/FancyZonesClone/release_win-x64/FancyZonesClone.exe
+            artifacts/publish/FancyZonesClone/release_win-x64/*.dll

@@ -1,0 +1,64 @@
+# Releases FancyZonesClone when a v* tag is pushed (v1.2.0 releases version 1.2.0). The tag is the only place the
+# version is set: MinVer reads it at build time, and the GitHub release gets notes generated from the pull requests
+# merged since the previous tag.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build, test & release
+    # Windows, because the Native AOT link step needs the MSVC toolchain, which windows-latest provides.
+    runs-on: windows-latest
+    permissions:
+      contents: write # create the GitHub release
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      # Full history: MinVer needs the tags.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release -warnaserror
+      - run: dotnet test --no-build --configuration Release
+      - run: dotnet publish src/FancyZonesClone --configuration Release --runtime win-x64
+
+      # MinVer falls back to 0.0.0-alpha.0 without failing when it finds no tag, so check the exe carries the
+      # tag's version before releasing it.
+      - name: Check executable version matches tag
+        run: |
+          $expected = "$env:GITHUB_REF_NAME".Substring(1)
+          $exe = "artifacts/publish/FancyZonesClone/release_win-x64/FancyZonesClone.exe"
+          $actual = ((Get-Item $exe).VersionInfo.ProductVersion -split '\+')[0]
+          if ($actual -ne $expected) {
+            Write-Output "::error::FancyZonesClone.exe is version $actual, expected $expected"
+            exit 1
+          }
+
+      - name: Package
+        run: |
+          $version = "$env:GITHUB_REF_NAME".Substring(1)
+          $publish = "artifacts/publish/FancyZonesClone/release_win-x64"
+          New-Item -ItemType Directory -Force artifacts/release | Out-Null
+          Copy-Item LICENSE, THIRD-PARTY-NOTICES.md $publish
+          Compress-Archive -Path "$publish/FancyZonesClone.exe", "$publish/*.dll", "$publish/LICENSE", "$publish/THIRD-PARTY-NOTICES.md" `
+            -DestinationPath "artifacts/release/FancyZonesClone-$version-win-x64.zip"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: artifacts/release
+          retention-days: 90
+
+      - name: Create GitHub release
+        run: gh release create "$env:GITHUB_REF_NAME" artifacts/release/*.zip --verify-tag --generate-notes --title "FancyZonesClone $("$env:GITHUB_REF_NAME".Substring(1))"
+        env:
+          GH_TOKEN: ${{ github.token }}

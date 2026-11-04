@@ -1,0 +1,33 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommitTypeAll(chore)",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "Australia/Adelaide",
+  "schedule": ["before 9am on monday"],
+  "prConcurrentLimit": 3,
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Avalonia's packages version together; a split bump fails restore under transitive pinning.",
+      "matchPackageNames": ["Avalonia", "Avalonia.*"],
+      "groupName": "avalonia"
+    },
+    {
+      "description": "Action digest bumps are mechanical and the workflow re-runs on the PR.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions"
+    },
+    {
+      "description": "The global.json SDK pin is a floor under rollForward latestFeature; bumping it only fails contributors a servicing release behind.",
+      "matchDepTypes": ["dotnet-sdk"],
+      "enabled": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"]
+  }
+}

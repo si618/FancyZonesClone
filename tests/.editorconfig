@@ -1,0 +1,10 @@
+# Test-only exceptions to the root .editorconfig. Only the differences live here.
+
+[*.cs]
+# MA0136 (raw string with implicit end-of-line characters): the raw strings in tests are JSON
+# fixtures, which are whitespace-insensitive, so the platform's line ending can't change a result.
+dotnet_diagnostic.MA0136.severity = none
+
+# MA0176 (optimize Guid creation): tests parse the same UUID strings FancyZones writes, so the
+# expected value reads like the fixture. Speed doesn't matter here.
+dotnet_diagnostic.MA0176.severity = none
