@@ -18,6 +18,7 @@
             <NativeMenuItem Header="Open config file" Click="OnOpenConfig" />
             <NativeMenuItem Header="Reload config" Click="OnReload" />
             <NativeMenuItemSeparator />
+            <NativeMenuItem Header="About" Click="OnAbout" />
             <NativeMenuItem Header="Help" Click="OnHelp" />
             <NativeMenuItem Header="Exit" Click="OnExit" />
           </NativeMenu>

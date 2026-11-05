@@ -19,6 +19,7 @@ public sealed class App : Application, IDisposable
     private ZoneEngine? _engine;
     private LayoutsWindow? _layoutsWindow;
     private HelpWindow? _helpWindow;
+    private AboutWindow? _aboutWindow;
     private bool _reporting;
 
     /// <inheritdoc/>
@@ -195,6 +196,19 @@ public sealed class App : Application, IDisposable
         {
             ReplaceConfig(config, save: false);
         }
+    }
+
+    private void OnAbout(object? sender, EventArgs e)
+    {
+        if (_aboutWindow is { } open)
+        {
+            open.Activate();
+            return;
+        }
+
+        _aboutWindow = new AboutWindow();
+        _aboutWindow.Closed += (_, _) => _aboutWindow = null;
+        _aboutWindow.Show();
     }
 
     // The window reads the config when it opens, so a reload while it's open shows on the next open.
