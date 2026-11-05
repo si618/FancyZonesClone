@@ -163,7 +163,9 @@ public sealed class App : Application, IDisposable
         ReplaceConfig(result.Config, save: true);
     }
 
-    private void OnOpenConfig(object? sender, EventArgs e)
+    private void OnOpenConfig(object? sender, EventArgs e) => OpenConfigFile();
+
+    private void OpenConfigFile()
     {
         // The file is missing only when every save so far has failed, and a text editor couldn't open it either.
         if (!File.Exists(ConfigStore.DefaultPath))
@@ -180,6 +182,22 @@ public sealed class App : Application, IDisposable
         {
             // Most often no app is associated with .json.
             Report($"Couldn't open {ConfigStore.DefaultPath}. Open it in a text editor instead. {ex.Message}");
+        }
+    }
+
+    // Selects the file in File Explorer, which also helps when no app is associated with .json. Explorer parses
+    // /select itself, so the path is quoted by hand rather than through ArgumentList.
+    private void OpenConfigFolder()
+    {
+        string path = ConfigStore.DefaultPath;
+        string arguments = File.Exists(path) ? $"/select,\"{path}\"" : $"\"{Path.GetDirectoryName(path)}\"";
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", arguments) { UseShellExecute = false })?.Dispose();
+        }
+        catch (Win32Exception ex)
+        {
+            Report($"Couldn't open the folder of {path}. {ex.Message}");
         }
     }
 
@@ -220,7 +238,7 @@ public sealed class App : Application, IDisposable
             return;
         }
 
-        _helpWindow = new HelpWindow(_config, ConfigStore.DefaultPath);
+        _helpWindow = new HelpWindow(_config, ConfigStore.DefaultPath, OpenConfigFile, OpenConfigFolder);
         _helpWindow.Closed += (_, _) => _helpWindow = null;
         _helpWindow.Show();
     }

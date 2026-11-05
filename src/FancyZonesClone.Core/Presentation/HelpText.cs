@@ -47,10 +47,9 @@ public static class HelpText
             ]),
             new("Config file",
             [
-                configPath,
                 "It accepts comments and trailing commas. Add custom layouts under customLayouts, or design them in FancyZones and re-import.",
                 "To never snap an app, add its executable name to excludedApps.",
-            ]),
+            ], configPath),
         ];
     }
 

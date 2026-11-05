@@ -5,7 +5,7 @@
         x:Class="FancyZonesClone.Views.AboutWindow"
         x:DataType="views:AboutWindow"
         Title="About FancyZonesClone"
-        Icon="/Assets/icon.png"
+        Icon="/Assets/icon.ico"
         Width="560" SizeToContent="Height"
         CanResize="False"
         WindowStartupLocation="CenterScreen">

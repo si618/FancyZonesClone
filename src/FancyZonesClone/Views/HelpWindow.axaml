@@ -6,7 +6,7 @@
         x:Class="FancyZonesClone.Views.HelpWindow"
         x:DataType="views:HelpWindow"
         Title="FancyZonesClone help"
-        Icon="/Assets/icon.png"
+        Icon="/Assets/icon.ico"
         Width="760" SizeToContent="Height"
         WindowStartupLocation="CenterScreen">
   <ScrollViewer>
@@ -17,6 +17,12 @@
           <DataTemplate x:DataType="vm:HelpSection">
             <StackPanel Margin="0,0,0,16" Spacing="6">
               <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="16" />
+              <WrapPanel IsVisible="{Binding FilePath, Converter={x:Static ObjectConverters.IsNotNull}}" Margin="16,0,0,4">
+                <HyperlinkButton Content="{Binding FilePath}" Click="OnOpenFile" Padding="0" Margin="0,0,16,0"
+                                 ToolTip.Tip="Open the file" />
+                <HyperlinkButton Content="Open folder" Click="OnOpenFolder" Padding="0"
+                                 ToolTip.Tip="Show the file in File Explorer" />
+              </WrapPanel>
               <ItemsControl ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="sys:String">
