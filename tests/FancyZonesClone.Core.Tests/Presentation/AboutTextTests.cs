@@ -27,7 +27,7 @@ public class AboutTextTests
         string runtime = AboutText.Runtime(".NET 10.0.0", nativeAot: true);
 
         // Assert
-        await Assert.That(runtime).StartsWith(".NET 10.0.0, compiled ahead of time with Native AOT");
+        await Assert.That(runtime).IsEqualTo(".NET 10.0.0, compiled ahead of time with Native AOT.");
     }
 
     [Test]

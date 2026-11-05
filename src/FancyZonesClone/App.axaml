@@ -2,13 +2,37 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="FancyZonesClone.App"
              RequestedThemeVariant="Default">
+  <!-- Fluent colours links with SystemAccentColor, which is unreadable on the dark theme when the Windows accent is
+       dark, such as a grey. These are Windows 11's link text colours for its default blue accent, which read on both
+       themes whatever the user's accent is. -->
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="LinkBrush" Color="#005FB8" />
+          <SolidColorBrush x:Key="LinkPointerOverBrush" Color="#003E92" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="LinkBrush" Color="#60CDFF" />
+          <SolidColorBrush x:Key="LinkPointerOverBrush" Color="#99EBFF" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
   <Application.Styles>
     <FluentTheme />
+    <Style Selector="HyperlinkButton /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource LinkBrush}" />
+    </Style>
+    <Style Selector="HyperlinkButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource LinkPointerOverBrush}" />
+    </Style>
   </Application.Styles>
 
   <TrayIcon.Icons>
     <TrayIcons>
-      <TrayIcon Icon="/Assets/icon.png" ToolTipText="FancyZonesClone" Clicked="OnTrayClicked">
+      <TrayIcon Icon="/Assets/icon.ico" ToolTipText="FancyZonesClone" Clicked="OnTrayClicked">
         <TrayIcon.Menu>
           <NativeMenu>
             <NativeMenuItem Header="Layouts…" Click="OnLayouts" />

@@ -62,7 +62,7 @@ public static class AboutText
         ArgumentNullException.ThrowIfNull(frameworkDescription);
 
         return nativeAot
-            ? $"{frameworkDescription}, compiled ahead of time with Native AOT into one self-contained executable, so there's no .NET runtime to install."
+            ? $"{frameworkDescription}, compiled ahead of time with Native AOT."
             : $"{frameworkDescription}, running on the JIT. Release builds are compiled ahead of time with Native AOT.";
     }
 }

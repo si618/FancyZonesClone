@@ -80,6 +80,19 @@ public class HelpTextTests
         await Assert.That(text).DoesNotContain("Assigned digits");
     }
 
+    [Test]
+    public async Task Create_AnyConfig_LinksConfigPathInsteadOfListingIt()
+    {
+        // Act
+        IReadOnlyList<HelpSection> sections = HelpText.Create(new FancyZonesCloneConfig(), ConfigPath);
+
+        // Assert
+        HelpSection configFile = sections.Single(s => string.Equals(s.Title, "Config file", StringComparison.Ordinal));
+        await Assert.That(configFile.FilePath).IsEqualTo(ConfigPath);
+        await Assert.That(configFile.Items).DoesNotContain(ConfigPath);
+        await Assert.That(sections.Count(s => s.FilePath is not null)).IsEqualTo(1);
+    }
+
     private static string Flatten(IReadOnlyList<HelpSection> sections) =>
-        string.Join('\n', sections.SelectMany(s => s.Items.Prepend(s.Title)));
+        string.Join('\n', sections.SelectMany(s => s.Items.Prepend(s.FilePath ?? string.Empty).Prepend(s.Title)));
 }
