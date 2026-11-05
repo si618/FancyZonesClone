@@ -43,6 +43,7 @@ public static class HelpText
                 "Pause: stop snapping until you clear it.",
                 "Re-import from PowerToys: replace the config with your FancyZones layouts and settings.",
                 "Open config file, then Reload config: apply your edits. Snapped windows lose their zones.",
+                "About: the version, the licence, and the libraries FancyZonesClone uses.",
             ]),
             new("Config file",
             [
