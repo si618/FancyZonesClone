@@ -56,7 +56,7 @@ public class OverlayRendererTests
         OverlayRenderer.Render(pixels, 300, 300, zoneSet, [], _style with { ShowNumbers = true });
 
         // Assert
-        await Assert.That(pixels).Contains(0xFF000000u);
+        await Assert.That(pixels).Contains(0xFFFF0000u);
     }
 
     [Test]
@@ -127,9 +127,9 @@ public class OverlayRendererTests
 
     [Test]
     [Arguments(40, 40, 12)]
-    [Arguments(100, 100, 16)]
-    [Arguments(2112, 1477, 246)]
-    public async Task NumberHeight_ZoneSize_IsASixthOfTheSmallerSideAndAtLeastTheMinimum(int width, int height, int expected)
+    [Arguments(160, 160, 16)]
+    [Arguments(2112, 1477, 147)]
+    public async Task NumberHeight_ZoneSize_IsATenthOfTheSmallerSideAndAtLeastTheMinimum(int width, int height, int expected)
     {
         // Act
         int numberHeight = OverlayRenderer.NumberHeight(PixelRect.FromSize(0, 0, width, height));
@@ -139,7 +139,24 @@ public class OverlayRendererTests
     }
 
     [Test]
-    public async Task Render_ZoneNumbersOn_AntiAliasesTheNumberEdges()
+    public async Task Render_HighlightedZoneNumber_AntiAliasesTheDigitAndBadgeEdges()
+    {
+        // Arrange
+        uint[] pixels = new uint[300 * 300];
+        var zoneSet = new ZoneSet([new Zone(0, new PixelRect(0, 0, 300, 300))], sensitivityRadius: 0);
+
+        // Act
+        OverlayRenderer.Render(pixels, 300, 300, zoneSet, [0], _style with { ShowNumbers = true });
+
+        // Assert
+        bool digitEdges = pixels.Any(pixel => pixel >> 24 == 0xFF && ((pixel >> 16) & 0xFF) is > 0 and < 0xFF && (pixel & 0xFF) is > 0 and < 0xFF);
+        bool badgeEdges = pixels.Any(pixel => pixel >> 24 is > 0x80 and < 0xFF);
+        await Assert.That(digitEdges).IsTrue();
+        await Assert.That(badgeEdges).IsTrue();
+    }
+
+    [Test]
+    public async Task Render_ZoneNumber_DrawsATranslucentBadgeBehindHighlightColourDigits()
     {
         // Arrange
         uint[] pixels = new uint[300 * 300];
@@ -149,9 +166,39 @@ public class OverlayRendererTests
         OverlayRenderer.Render(pixels, 300, 300, zoneSet, [], _style with { ShowNumbers = true });
 
         // Assert
-        uint[] blended = [.. pixels.Where(pixel => pixel is not (0x80000080u or 0xFF000000u or 0xFFFFFFFFu))];
-        await Assert.That(blended).IsNotEmpty();
-        await Assert.That(blended.All(pixel => pixel >> 24 is >= 0x80 and < 0xFF)).IsTrue();
+        await Assert.That(pixels[(150 * 300) + 130] >> 24).IsBetween(0x81u, 0xFEu);
+        await Assert.That(pixels).Contains(0xFFFF0000u);
+    }
+
+    [Test]
+    public async Task Render_HighlightedZoneNumber_DrawsAnOpaqueBadge()
+    {
+        // Arrange
+        uint[] pixels = new uint[300 * 300];
+        var zoneSet = new ZoneSet([new Zone(0, new PixelRect(0, 0, 300, 300))], sensitivityRadius: 0);
+
+        // Act
+        OverlayRenderer.Render(pixels, 300, 300, zoneSet, [0], _style with { ShowNumbers = true });
+
+        // Assert
+        int[] digit = [.. Enumerable.Range(0, pixels.Length).Where(i => pixels[i] == 0xFFFF0000u)];
+        await Assert.That(pixels[(150 * 300) + 130]).IsEqualTo(0xFF0000FFu);
+        await Assert.That(digit.Length).IsGreaterThan(100);
+        await Assert.That(digit.All(i => i % 300 is > 130 and < 170)).IsTrue();
+    }
+
+    [Test]
+    public async Task Render_NumberNearTheBufferEdge_ClipsThePillWithoutThrowing()
+    {
+        // Arrange
+        uint[] pixels = new uint[40 * 40];
+        var zoneSet = new ZoneSet([new Zone(0, new PixelRect(-30, -30, 30, 30))], sensitivityRadius: 0);
+
+        // Act
+        OverlayRenderer.Render(pixels, 40, 40, zoneSet, [0], _style with { ShowNumbers = true });
+
+        // Assert
+        await Assert.That(pixels[(6 * 40) + 6]).IsEqualTo(0xFF0000FFu);
     }
 
     [Test]
@@ -165,18 +212,62 @@ public class OverlayRendererTests
     [Arguments(8)]
     [Arguments(9)]
     [Arguments(10)]
-    public async Task Render_EachZoneNumber_DrawsSolidStrokesInsideTheNumberBox(int number)
+    public async Task Render_EachZoneNumber_FillsSolidDigitsInsideTheNumberBox(int number)
     {
         // Arrange
         uint[] pixels = new uint[300 * 300];
         var zoneSet = new ZoneSet([new Zone(number - 1, new PixelRect(0, 0, 300, 300))], sensitivityRadius: 0);
 
         // Act
-        OverlayRenderer.Render(pixels, 300, 300, zoneSet, [], _style with { ShowNumbers = true });
+        OverlayRenderer.Render(pixels, 300, 300, zoneSet, [number - 1], _style with { ShowNumbers = true });
 
         // Assert
-        int[] inked = [.. Enumerable.Range(0, pixels.Length).Where(i => pixels[i] == 0xFF000000u)];
+        int[] inked = [.. Enumerable.Range(0, pixels.Length).Where(i => pixels[i] == 0xFFFF0000u)];
         await Assert.That(inked.Length).IsGreaterThan(100);
-        await Assert.That(inked.All(i => i / 300 is >= 125 and < 175)).IsTrue();
+        await Assert.That(inked.All(i => i / 300 is >= 134 and < 166)).IsTrue();
+    }
+
+    [Test]
+    public async Task Render_TwoDigitNumber_WidensThePillToFitBothDigits()
+    {
+        // Arrange
+        uint[] one = new uint[300 * 300];
+        uint[] twelve = new uint[300 * 300];
+        var zone = new PixelRect(0, 0, 300, 300);
+
+        // Act
+        OverlayRenderer.Render(one, 300, 300, new ZoneSet([new Zone(0, zone)], sensitivityRadius: 0), [0], _style with { ShowNumbers = true });
+        OverlayRenderer.Render(twelve, 300, 300, new ZoneSet([new Zone(11, zone)], sensitivityRadius: 0), [11], _style with { ShowNumbers = true });
+
+        // Assert
+        await Assert.That(one.Count(pixel => pixel == 0xFF0000FFu)).IsLessThan(twelve.Count(pixel => pixel == 0xFF0000FFu));
+    }
+
+    [Test]
+    [Arguments("#E0E0E0", "#202020", "#E0E0E0")]
+    [Arguments("#000000", "#F5FCFF", "#F5FCFF")]
+    [Arguments("#808080", "#808080", "#808080")]
+    public async Task Lighter_TwoColours_ReturnsTheOneWithHigherLuma(string first, string second, string expected)
+    {
+        // Act
+        var lighter = RgbColor.Lighter(RgbColor.Parse(first, default), RgbColor.Parse(second, default));
+
+        // Assert
+        await Assert.That(lighter).IsEqualTo(RgbColor.Parse(expected, default));
+    }
+
+    [Test]
+    public async Task Render_LightOverlayColours_DrawsTheBadgeInTheZoneColour()
+    {
+        // Arrange
+        uint[] pixels = new uint[300 * 300];
+        var zoneSet = new ZoneSet([new Zone(0, new PixelRect(0, 0, 300, 300))], sensitivityRadius: 0);
+        OverlayStyle light = _style with { Zone = new RgbColor(0xF5, 0xFC, 0xFF), Number = new RgbColor(0, 0, 0), ShowNumbers = true };
+
+        // Act
+        OverlayRenderer.Render(pixels, 300, 300, zoneSet, [0], light);
+
+        // Assert
+        await Assert.That(pixels[(150 * 300) + 130]).IsEqualTo(0xFFF5FCFFu);
     }
 }

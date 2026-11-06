@@ -16,9 +16,17 @@ public readonly record struct RgbColor(byte R, byte G, byte B)
             : fallback;
     }
 
+    /// <summary>
+    /// Returns whichever of <paramref name="first"/> and <paramref name="second"/> is lighter, by Rec. 709 luma, and
+    /// <paramref name="first"/> on a tie.
+    /// </summary>
+    public static RgbColor Lighter(RgbColor first, RgbColor second) => second.Luma > first.Luma ? second : first;
+
     /// <summary>Packs the colour as a premultiplied BGRA pixel, the format <c>UpdateLayeredWindow</c> takes.</summary>
     public uint ToPremultipliedBgra(byte alpha) =>
         ((uint)alpha << 24) | ((uint)Premultiply(R, alpha) << 16) | ((uint)Premultiply(G, alpha) << 8) | Premultiply(B, alpha);
+
+    private float Luma => (0.2126f * R) + (0.7152f * G) + (0.0722f * B);
 
     private static byte Premultiply(byte channel, byte alpha) => (byte)(((channel * alpha) + 127) / 255);
 }
