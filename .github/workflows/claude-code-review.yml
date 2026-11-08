@@ -1,0 +1,64 @@
+name: Claude Code review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+permissions: {}
+
+# A new push supersedes the review of the previous one.
+concurrency:
+  group: claude-code-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Fork pull requests get no secrets, and Renovate's bumps are checked by CI alone.
+    if: >-
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'renovate[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write # inline comments and the summary comment
+      id-token: write # the action exchanges an OIDC token for the Claude GitHub App's token
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history, so the reviewer can read git log and blame.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request. Read AGENTS.md first: its conventions and writing style are the standard you
+            review against, and they govern every comment you write.
+
+            Look for, in order of weight:
+            - Correctness bugs, including differences from FancyZones' arithmetic in microsoft/PowerToys
+              src/modules/fancyzones/FancyZonesLib. Confirm a difference before you call it a bug.
+            - Native AOT hazards: delegates marshalled to native code, reflection-based JSON outside
+              ConfigJsonContext, and non-blittable interop.
+            - Logic in src/FancyZonesClone.Windows or src/FancyZonesClone that belongs in Core, and new Core logic
+              without TUnit tests named UnitOfWork_Scenario_ExpectedBehaviour.
+            - Warning suppressions without a comment that says why, and package versions set outside
+              Directory.Packages.props.
+            - A pull request title that isn't Conventional Commits, or a description that doesn't follow AGENTS.md.
+
+            Report only findings you're confident in, and skip style nits that dotnet format already enforces.
+            Put each finding on its line with mcp__github_inline_comment__create_inline_comment, leading with the
+            defect and a concrete failure scenario.
+
+            Then post one summary with `gh pr comment ${{ github.event.pull_request.number }} --edit-last
+            --create-if-none --body "<summary>"`, so a re-review updates the earlier summary instead of adding one.
+            Say what you checked and list the findings, or say you found none. Say that a change to the Windows
+            layer is checked by reading alone, because this runner can't run it.
+          claude_args: >-
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git blame:*)"
+            --append-system-prompt "Sign every comment you post with one final line in small italics, naming the model you're running as: <sub><i>Written by an agent: Claude Code, <model>, reviewing a pull request.</i></sub>"
