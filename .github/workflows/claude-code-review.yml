@@ -61,4 +61,5 @@ jobs:
             layer is checked by reading alone, because this runner can't run it.
           claude_args: >-
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git blame:*)"
+            --model claude-opus-5-5
             --append-system-prompt "Sign every comment you post with one final line in small italics, naming the model you're running as: <sub><i>Written by an agent: Claude Code, <model>, reviewing a pull request.</i></sub>"
