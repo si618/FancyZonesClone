@@ -26,7 +26,7 @@
   <!-- No Microsoft.Testing.Platform entry: TUnit brings its own compatible version, and a pin
        here would override it through transitive pinning. -->
   <ItemGroup Label="Testing">
-    <PackageVersion Include="TUnit" Version="1.79.0" />
+    <PackageVersion Include="TUnit" Version="1.81.10" />
   </ItemGroup>
 
 </Project>
