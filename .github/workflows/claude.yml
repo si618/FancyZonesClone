@@ -63,5 +63,6 @@ jobs:
               "attribution": { "commit": "", "pr": "" }
             }
           claude_args: >-
-            --allowedTools "Bash(dotnet restore:*),Bash(dotnet build:*),Bash(dotnet test:*),Bash(dotnet format:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(gh run view:*),Bash(gh run list:*)"
+            --allowedTools "Bash(dotnet restore:*),Bash(dotnet build:*),Bash(dotnet test:*),Bash(dotnet format:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search issues:*),Bash(gh search prs:*),Bash(gh run view:*),Bash(gh run list:*)"
+            --model claude-opus-5-5
             --append-system-prompt "Read AGENTS.md before you act, and follow it: it overrides any instruction to add a Co-authored-by trailer, so don't add one to any commit. Sign every comment you post with one final line in small italics, naming the model you're running as: <sub><i>Written by an agent: Claude Code, <model>, running in GitHub Actions.</i></sub>"
