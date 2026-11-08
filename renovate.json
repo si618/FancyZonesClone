@@ -21,7 +21,7 @@
       "groupName": "github actions"
     },
     {
-      "description": "The global.json SDK pin is a floor under rollForward latestFeature; bumping it only fails contributors a servicing release behind.",
+      "description": "The global.json SDK pin is a floor under rollForward latestFeature. Renovate restores with exactly that SDK, so raise it by hand when a servicing release fixes an advisory that NuGet Audit fails restore on.",
       "matchDepTypes": ["dotnet-sdk"],
       "enabled": false
     }
