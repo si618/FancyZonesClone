@@ -6,6 +6,9 @@
     "helpers:pinGitHubActionDigests"
   ],
   "timezone": "Australia/Adelaide",
+  "constraints": {
+    "dotnet": "~10.0.400"
+  },
   "schedule": ["before 9am on monday"],
   "prConcurrentLimit": 3,
   "labels": ["dependencies"],
@@ -21,7 +24,7 @@
       "groupName": "github actions"
     },
     {
-      "description": "The global.json SDK pin is a floor under rollForward latestFeature; bumping it only fails contributors a servicing release behind.",
+      "description": "The global.json SDK pin is a floor under rollForward latestFeature, raised by hand. constraints.dotnet gives Renovate's restore the same roll-forward, so lock file updates don't wait on the floor.",
       "matchDepTypes": ["dotnet-sdk"],
       "enabled": false
     }
