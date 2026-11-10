@@ -10,13 +10,13 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Targets and language">
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <!-- Promotes nullable warnings to errors, so the compiler enforces annotations (opinions/csharp.md) -->
     <WarningsAsErrors>nullable</WarningsAsErrors>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Lets the net10.0-windows projects build on Linux and macOS, though not run, so the whole
+    <!-- Lets the net11.0-windows projects build on Linux and macOS, though not run, so the whole
          solution compiles in WSL and the Core tests run there. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>

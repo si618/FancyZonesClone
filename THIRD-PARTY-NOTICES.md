@@ -144,4 +144,4 @@ The release links these packages. Native AOT compiles their managed code into th
 
 Avalonia references MicroCom.Runtime for COM interop, so it's in the graph that Native AOT compiles.
 
-The .NET runtime includes third-party code of its own, such as zlib and parts of the Unicode data. Its notices are in [`THIRD-PARTY-NOTICES.TXT`](https://github.com/dotnet/runtime/blob/release/10.0/THIRD-PARTY-NOTICES.TXT) in dotnet/runtime, and apply to the executable too.
+The .NET runtime includes third-party code of its own, such as zlib and parts of the Unicode data. Its notices are in [`THIRD-PARTY-NOTICES.TXT`](https://github.com/dotnet/runtime/blob/release/11.0/THIRD-PARTY-NOTICES.TXT) in dotnet/runtime, and apply to the executable too.

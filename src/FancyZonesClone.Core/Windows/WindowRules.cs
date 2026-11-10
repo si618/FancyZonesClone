@@ -39,7 +39,7 @@ public static class WindowRules
         ArgumentNullException.ThrowIfNull(processPath);
         ArgumentNullException.ThrowIfNull(excludedApps);
 
-        int lastSlash = processPath.LastIndexOf('\\');
+        int lastSlash = processPath.LastIndexOf('\\', StringComparison.Ordinal);
         return excludedApps
             .Select(e => e.Trim())
             .Where(e => e.Length > 0)

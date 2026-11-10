@@ -7,7 +7,7 @@
   ],
   "timezone": "Australia/Adelaide",
   "constraints": {
-    "dotnet": "~10.0.400"
+    "dotnet": "~11.0.100"
   },
   "schedule": ["before 9am on monday"],
   "prConcurrentLimit": 3,
