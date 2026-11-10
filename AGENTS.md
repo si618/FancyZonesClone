@@ -1,6 +1,6 @@
 # Agent instructions
 
-FancyZonesClone is a standalone port of PowerToys FancyZones: a .NET 10, C# 14 tray app, published with Native AOT. This file tells an AI agent how to maintain it.
+FancyZonesClone is a standalone port of PowerToys FancyZones: a .NET 11, C# 15 tray app, published with Native AOT. This file tells an AI agent how to maintain it.
 
 ## What this repository is
 

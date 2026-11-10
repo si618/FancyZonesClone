@@ -18,8 +18,8 @@ public sealed record MonitorIdentity(string DeviceId, string InstanceId, string 
         ArgumentNullException.ThrowIfNull(name);
 
         int nameStart = name.IndexOf('#', StringComparison.Ordinal);
-        int instanceStart = nameStart < 0 ? -1 : name.IndexOf('#', nameStart + 1);
-        int instanceEnd = instanceStart < 0 ? -1 : name.IndexOf('#', instanceStart + 1);
+        int instanceStart = nameStart < 0 ? -1 : name.IndexOf('#', nameStart + 1, StringComparison.Ordinal);
+        int instanceEnd = instanceStart < 0 ? -1 : name.IndexOf('#', instanceStart + 1, StringComparison.Ordinal);
 
         return instanceEnd < 0
             ? new MonitorIdentity(name, "")
