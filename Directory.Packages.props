@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup Label="Analyzers">
-    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.321" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.340" />
   </ItemGroup>
 
   <!-- No Microsoft.Testing.Platform entry: TUnit brings its own compatible version, and a pin
