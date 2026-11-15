@@ -55,7 +55,7 @@ public static class AboutText
     }
 
     /// <summary>Describes the runtime and how the executable was compiled.</summary>
-    /// <param name="frameworkDescription">The value of <c>RuntimeInformation.FrameworkDescription</c>, such as <c>.NET 10.0.0</c>.</param>
+    /// <param name="frameworkDescription">The value of <c>RuntimeInformation.FrameworkDescription</c>, such as <c>.NET 11.0.0</c>.</param>
     /// <param name="nativeAot">Whether the process runs as a Native AOT executable, with no JIT.</param>
     public static string Runtime(string frameworkDescription, bool nativeAot)
     {

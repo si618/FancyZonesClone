@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- Win32 hooks, monitors, and window placement exist only on Windows. -->
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net11.0-windows</TargetFramework>
     <IsAotCompatible>true</IsAotCompatible>
     <!-- LibraryImport generates blittable marshalling stubs, which need unsafe code. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
