@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <IsPackable>false</IsPackable>
     <IsPublishable>false</IsPublishable>
     <!-- TUnit test projects build to an executable on Microsoft.Testing.Platform. -->
     <OutputType>Exe</OutputType>

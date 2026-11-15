@@ -99,7 +99,7 @@ public class ConfigStoreTests
         string folder = Path.Combine(Path.GetTempPath(), "FancyZonesClone.Tests", Guid.NewGuid().ToString("N"));
         string path = Path.Combine(folder, "config.json");
         Directory.CreateDirectory(folder);
-        await File.WriteAllTextAsync(path, """{ "settings": { "shiftDrag": false "showZoneNumbers": true } }""").ConfigureAwait(false);
+        await File.WriteAllTextAsync(path, """{ "settings": { "shiftDrag": false "showZoneNumbers": true } }""");
 
         try
         {
@@ -134,8 +134,8 @@ public class ConfigStoreTests
         string folder = Path.Combine(Path.GetTempPath(), "FancyZonesClone.Tests", Guid.NewGuid().ToString("N"));
         string path = Path.Combine(folder, "config.json");
         Directory.CreateDirectory(folder);
-        await File.WriteAllTextAsync(path, "{ broken").ConfigureAwait(false);
-        await File.WriteAllTextAsync(path + ".invalid", "older").ConfigureAwait(false);
+        await File.WriteAllTextAsync(path, "{ broken");
+        await File.WriteAllTextAsync(path + ".invalid", "older");
 
         try
         {
@@ -145,7 +145,7 @@ public class ConfigStoreTests
             // Assert
             await Assert.That(aside).IsEqualTo(path + ".invalid");
             await Assert.That(File.Exists(path)).IsFalse();
-            await Assert.That(await File.ReadAllTextAsync(aside).ConfigureAwait(false)).IsEqualTo("{ broken");
+            await Assert.That(await File.ReadAllTextAsync(aside)).IsEqualTo("{ broken");
         }
         finally
         {
@@ -225,7 +225,7 @@ public class ConfigStoreTests
         string folder = Path.Combine(Path.GetTempPath(), "FancyZonesClone.Tests", Guid.NewGuid().ToString("N"));
         string path = Path.Combine(folder, "config.json");
         Directory.CreateDirectory(folder);
-        await File.WriteAllTextAsync(path, /*lang=json*/ """{ "monitors": [ null ] }""").ConfigureAwait(false);
+        await File.WriteAllTextAsync(path, /*lang=json*/ """{ "monitors": [ null ] }""");
 
         try
         {
