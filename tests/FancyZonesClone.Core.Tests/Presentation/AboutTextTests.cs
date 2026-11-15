@@ -44,7 +44,7 @@ public class AboutTextTests
     [Test]
     public async Task Links_All_PointAtTheRepository()
     {
-        // Assert
+        // Act & Assert
         foreach (AboutLink link in AboutText.Links)
         {
             await Assert.That(link.Uri.AbsoluteUri).StartsWith("https://github.com/si618/FancyZonesClone");
@@ -54,7 +54,7 @@ public class AboutTextTests
     [Test]
     public async Task Libraries_All_UseHttpsAndNameALicence()
     {
-        // Assert
+        // Act & Assert
         foreach (AboutLibrary library in AboutText.Libraries)
         {
             await Assert.That(library.Uri.Scheme).IsEqualTo(Uri.UriSchemeHttps);
