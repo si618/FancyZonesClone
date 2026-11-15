@@ -42,7 +42,7 @@ jobs:
       # managed run can't see, so compile the tests natively and run them too. The test project sets IsPublishable
       # to false, which this lane overrides.
       - run: dotnet publish tests/FancyZonesClone.Core.Tests --no-restore --configuration Release -p:IsPublishable=true
-      - run: ./artifacts/publish/FancyZonesClone.Core.Tests/release_win-x64/FancyZonesClone.Core.Tests.exe
+      - run: ./artifacts/publish/FancyZonesClone.Core.Tests/release/FancyZonesClone.Core.Tests.exe
       # Proves the Native AOT build still links on every change, which can't be checked without MSVC locally.
       # The app project sets RuntimeIdentifier to win-x64, so the build above is already the win-x64 build, and
       # this step compiles those assemblies natively without rebuilding them. Releases come from release.yml.
