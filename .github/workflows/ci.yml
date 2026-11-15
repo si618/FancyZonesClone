@@ -40,10 +40,15 @@ jobs:
           path: artifacts/test-results
       # After the tests, so a formatting difference doesn't hide their results.
       - run: dotnet format --no-restore --verify-no-changes
+      # The app ships only as Native AOT, and trimming and reflection-free serialisation change behaviour that the
+      # managed run can't see, so compile the tests natively and run them too. The test project sets IsPublishable
+      # to false, which this lane overrides.
+      - run: dotnet publish tests/FancyZonesClone.Core.Tests --no-restore --configuration Release -p:IsPublishable=true
+      - run: ./artifacts/publish/FancyZonesClone.Core.Tests/release_win-x64/FancyZonesClone.Core.Tests.exe
       # Proves the Native AOT build still links on every change, which can't be checked without MSVC locally.
-      # Native AOT compiles at publish time for one runtime identifier, so this step can't reuse the portable build
-      # above: that's the one exception to publishing with --no-build. Releases come from release.yml.
-      - run: dotnet publish src/FancyZonesClone --configuration Release --runtime win-x64
+      # The app project sets RuntimeIdentifier to win-x64, so the build above is already the win-x64 build, and
+      # this step compiles those assemblies natively without rebuilding them. Releases come from release.yml.
+      - run: dotnet publish src/FancyZonesClone --no-build --configuration Release
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: FancyZonesClone-win-x64-unreleased

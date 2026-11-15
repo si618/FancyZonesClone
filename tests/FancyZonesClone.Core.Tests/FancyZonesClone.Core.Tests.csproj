@@ -2,6 +2,13 @@
 
   <PropertyGroup>
     <IsPublishable>false</IsPublishable>
+    <!-- The app ships only as Native AOT, so CI also publishes this project natively and runs the executable. Set
+         here, not on the command line, so the trim and AOT analysers check the tests in every build and
+         packages.lock.json holds the ILCompiler for the locked restore. CI passes IsPublishable for that lane. -->
+    <PublishAot>true</PublishAot>
+    <!-- Without it, PublishAot defaults the publish RID to the build host's, and the locked restore fails with
+         NU1004 because packages.lock.json has only win-x64. -->
+    <PublishRuntimeIdentifier>win-x64</PublishRuntimeIdentifier>
     <!-- TUnit test projects build to an executable on Microsoft.Testing.Platform. -->
     <OutputType>Exe</OutputType>
     <!-- house:simon-mckenna begin -->

@@ -77,7 +77,7 @@ public class KeyboardSnapperTests
         SnapRequest? request = KeyboardSnapper.Plan(42, _monitor, zoneSet, assignments, HorizontalDirection.Right);
 
         // Assert
-        await Assert.That(request!.ZoneIndexes).IsEquivalentTo([1], CollectionOrdering.Matching);
+        await Assert.That(request!.ZoneIndexes).IsEquivalentTo([1], EqualityComparer<int>.Default, CollectionOrdering.Matching);
         await Assert.That(request.ScreenRect).IsEqualTo(new PixelRect(-1280, 0, 0, 1392));
     }
 
@@ -108,7 +108,7 @@ public class KeyboardSnapperTests
 
         // Assert
         await Assert.That(assignments.Get(1, 10)).IsEmpty();
-        await Assert.That(assignments.Get(2, 20)).IsEquivalentTo([1], CollectionOrdering.Matching);
+        await Assert.That(assignments.Get(2, 20)).IsEquivalentTo([1], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]

@@ -32,7 +32,7 @@ public class DragControllerTests
 
         // Assert
         await Assert.That(request).IsNotNull();
-        await Assert.That(request!.ZoneIndexes).IsEquivalentTo([1], CollectionOrdering.Matching);
+        await Assert.That(request!.ZoneIndexes).IsEquivalentTo([1], EqualityComparer<int>.Default, CollectionOrdering.Matching);
         await Assert.That(request.ScreenRect).IsEqualTo(new PixelRect(1920 + 640, 40, 1920 + 1280, 1080));
         await Assert.That(request.Window).IsEqualTo(Window);
     }
@@ -100,7 +100,7 @@ public class DragControllerTests
         SnapRequest? request = controller.End();
 
         // Assert
-        await Assert.That(request!.ZoneIndexes).IsEquivalentTo([0, 1, 2], CollectionOrdering.Matching);
+        await Assert.That(request!.ZoneIndexes).IsEquivalentTo([0, 1, 2], EqualityComparer<int>.Default, CollectionOrdering.Matching);
         await Assert.That(request.ScreenRect).IsEqualTo(new PixelRect(1920, 40, 3840, 1080));
     }
 

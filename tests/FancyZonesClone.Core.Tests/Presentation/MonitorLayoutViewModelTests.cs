@@ -97,7 +97,7 @@ public class MonitorLayoutViewModelTests
         var viewModel = new MonitorLayoutViewModel(config, _monitor, () => { });
 
         // Assert
-        await Assert.That(viewModel.Zones.Select(z => z.Index)).IsEquivalentTo([0, 2, 3], CollectionOrdering.Matching);
+        await Assert.That(viewModel.Zones.Select(z => z.Index)).IsEquivalentTo([0, 2, 3], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]

@@ -30,11 +30,11 @@ public class ConfigStoreTests
         FancyZonesCloneConfig restored = ConfigStore.Deserialize(ConfigStore.Serialize(config));
 
         // Assert
-        await Assert.That(restored.CustomLayouts[0].Grid!.ColumnPercents).IsEquivalentTo([4000, 6000], CollectionOrdering.Matching);
+        await Assert.That(restored.CustomLayouts[0].Grid!.ColumnPercents).IsEquivalentTo([4000, 6000], EqualityComparer<int>.Default, CollectionOrdering.Matching);
         await Assert.That(restored.CustomLayouts[0].Spacing).IsEqualTo(8);
         await Assert.That(restored.Monitors[0].Monitor).IsEqualTo(new MonitorIdentity("GSM7863", "4&a&0&UID1", "S1"));
         await Assert.That(restored.Monitors[0].Layout.CustomLayoutId).IsEqualTo(layoutId);
-        await Assert.That(restored.Settings.ExcludedApps).IsEquivalentTo(["Teams.exe"], CollectionOrdering.Matching);
+        await Assert.That(restored.Settings.ExcludedApps).IsEquivalentTo(["Teams.exe"], StringComparer.Ordinal, CollectionOrdering.Matching);
     }
 
     [Test]
