@@ -15,9 +15,10 @@
     <!-- Publish one self-contained native executable, so there's no .NET runtime to install and it starts
          quickly at sign-in. -->
     <PublishAot>true</PublishAot>
-    <!-- Without it, PublishAot defaults the publish RID to the build host's, which adds linux-x64 on the Ubuntu
-         CodeQL runner, and the locked restore fails with NU1004 because packages.lock.json has only win-x64. -->
-    <PublishRuntimeIdentifier>win-x64</PublishRuntimeIdentifier>
+    <!-- Every build targets win-x64, so a no-build dotnet publish compiles the assemblies that CI built and
+         tested. It also keeps the publish RID off the build host's, which would add linux-x64 on the Ubuntu
+         CodeQL runner and fail the locked restore with NU1004, because packages.lock.json has only win-x64. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <InvariantGlobalization>true</InvariantGlobalization>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
     <!-- The hooks do little work per event, so smaller code beats faster code here. -->

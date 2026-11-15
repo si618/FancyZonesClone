@@ -95,12 +95,12 @@ public class PowerToysImporterTests
         FancyZonesCloneConfig config = PowerToysImporter.Import(AllFiles).Config;
 
         // Assert
-        await Assert.That(config.CustomLayouts.Select(c => c.Name)).IsEquivalentTo(["5K2K", "Work Right"], CollectionOrdering.Matching);
+        await Assert.That(config.CustomLayouts.Select(c => c.Name)).IsEquivalentTo(["5K2K", "Work Right"], StringComparer.Ordinal, CollectionOrdering.Matching);
         CustomLayout canvas = config.CustomLayouts[0];
         await Assert.That(canvas.Id).IsEqualTo(Guid.Parse(WideCanvasId));
         await Assert.That(canvas.Canvas!.Zones[3]).IsEqualTo(new CanvasZone(3643, 1221, 1477, 879));
         CustomLayout grid = config.CustomLayouts[1];
-        await Assert.That(grid.Grid!.RowPercents).IsEquivalentTo([6872, 3128], CollectionOrdering.Matching);
+        await Assert.That(grid.Grid!.RowPercents).IsEquivalentTo([6872, 3128], EqualityComparer<int>.Default, CollectionOrdering.Matching);
         await Assert.That(grid.Spacing).IsEqualTo(16);
         await Assert.That(grid.SensitivityRadius).IsEqualTo(15);
     }
@@ -177,7 +177,7 @@ public class PowerToysImporterTests
         await Assert.That(settings.HighlightOpacity).IsEqualTo(65);
         await Assert.That(settings.ZoneHighlightColor).IsEqualTo("#112233");
         await Assert.That(settings.ShowZoneNumbers).IsFalse();
-        await Assert.That(settings.ExcludedApps).IsEquivalentTo(["Teams.exe", "Game.exe"], CollectionOrdering.Matching);
+        await Assert.That(settings.ExcludedApps).IsEquivalentTo(["Teams.exe", "Game.exe"], StringComparer.Ordinal, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -215,7 +215,7 @@ public class PowerToysImporterTests
         PowerToysImportResult result = PowerToysImporter.Import(new PowerToysFiles(CustomLayouts: json));
 
         // Assert
-        await Assert.That(result.Config.CustomLayouts.Select(c => c.Name)).IsEquivalentTo(["Good"], CollectionOrdering.Matching);
+        await Assert.That(result.Config.CustomLayouts.Select(c => c.Name)).IsEquivalentTo(["Good"], StringComparer.Ordinal, CollectionOrdering.Matching);
         await Assert.That(result.Warnings).Contains(w => w.Contains("'Broken'", StringComparison.Ordinal));
     }
 
@@ -237,7 +237,7 @@ public class PowerToysImporterTests
         PowerToysImportResult result = PowerToysImporter.Import(new PowerToysFiles(CustomLayouts: Json));
 
         // Assert
-        await Assert.That(result.Config.CustomLayouts.Select(c => c.Name)).IsEquivalentTo(["Good"], CollectionOrdering.Matching);
+        await Assert.That(result.Config.CustomLayouts.Select(c => c.Name)).IsEquivalentTo(["Good"], StringComparer.Ordinal, CollectionOrdering.Matching);
         await Assert.That(result.Warnings.Count).IsEqualTo(2);
     }
 

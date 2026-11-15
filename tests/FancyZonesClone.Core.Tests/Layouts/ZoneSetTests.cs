@@ -20,7 +20,7 @@ public class ZoneSetTests
         IReadOnlyList<int> zones = _threeColumns.ZonesFromPoint(new PixelPoint(50, 50), OverlappingZonesAlgorithm.Smallest);
 
         // Assert
-        await Assert.That(zones).IsEquivalentTo([0], CollectionOrdering.Matching);
+        await Assert.That(zones).IsEquivalentTo([0], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -30,7 +30,7 @@ public class ZoneSetTests
         IReadOnlyList<int> zones = _threeColumns.ZonesFromPoint(new PixelPoint(100, 50), OverlappingZonesAlgorithm.Smallest);
 
         // Assert
-        await Assert.That(zones).IsEquivalentTo([0, 1], CollectionOrdering.Matching);
+        await Assert.That(zones).IsEquivalentTo([0, 1], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -53,7 +53,7 @@ public class ZoneSetTests
         IReadOnlyList<int> zones = _nested.ZonesFromPoint(new PixelPoint(150, 150), OverlappingZonesAlgorithm.Smallest);
 
         // Assert
-        await Assert.That(zones).IsEquivalentTo([1], CollectionOrdering.Matching);
+        await Assert.That(zones).IsEquivalentTo([1], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -63,7 +63,7 @@ public class ZoneSetTests
         IReadOnlyList<int> zones = _nested.ZonesFromPoint(new PixelPoint(150, 150), OverlappingZonesAlgorithm.Largest);
 
         // Assert
-        await Assert.That(zones).IsEquivalentTo([0], CollectionOrdering.Matching);
+        await Assert.That(zones).IsEquivalentTo([0], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -80,8 +80,8 @@ public class ZoneSetTests
         IReadOnlyList<int> smallest = zoneSet.ZonesFromPoint(point, OverlappingZonesAlgorithm.Smallest);
 
         // Assert
-        await Assert.That(closest).IsEquivalentTo([0], CollectionOrdering.Matching);
-        await Assert.That(smallest).IsEquivalentTo([1], CollectionOrdering.Matching);
+        await Assert.That(closest).IsEquivalentTo([0], EqualityComparer<int>.Default, CollectionOrdering.Matching);
+        await Assert.That(smallest).IsEquivalentTo([1], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -98,7 +98,7 @@ public class ZoneSetTests
         IReadOnlyList<int> zones = zoneSet.ZonesFromPoint(new PixelPoint(x, 200), OverlappingZonesAlgorithm.Positional);
 
         // Assert
-        await Assert.That(zones).IsEquivalentTo([expectedZone], CollectionOrdering.Matching);
+        await Assert.That(zones).IsEquivalentTo([expectedZone], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -111,7 +111,7 @@ public class ZoneSetTests
         IReadOnlyList<int> zones = zoneSet.CombinedZoneRange([0], [2]);
 
         // Assert
-        await Assert.That(zones).IsEquivalentTo([0, 1, 2], CollectionOrdering.Matching);
+        await Assert.That(zones).IsEquivalentTo([0, 1, 2], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -124,7 +124,7 @@ public class ZoneSetTests
         IReadOnlyList<int> zones = zoneSet.CombinedZoneRange([0], [2]);
 
         // Assert
-        await Assert.That(zones).IsEquivalentTo([0, 1, 2, 3], CollectionOrdering.Matching);
+        await Assert.That(zones).IsEquivalentTo([0, 1, 2, 3], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]

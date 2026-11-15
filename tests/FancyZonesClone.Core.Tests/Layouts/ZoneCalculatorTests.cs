@@ -15,7 +15,7 @@ public class ZoneCalculatorTests
         // Assert
         await Assert.That(Rects(zones)).IsEquivalentTo(
             [new PixelRect(10, 10, 330, 490), new PixelRect(340, 10, 660, 490), new PixelRect(670, 10, 990, 490)],
-            CollectionOrdering.Matching);
+            EqualityComparer<PixelRect>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -25,7 +25,7 @@ public class ZoneCalculatorTests
         IReadOnlyList<Zone> zones = ZoneCalculator.Columns(100, 50, 3, spacing: 0);
 
         // Assert
-        await Assert.That(zones.Select(z => z.Rect.Right)).IsEquivalentTo([33, 66, 100], CollectionOrdering.Matching);
+        await Assert.That(zones.Select(z => z.Rect.Right)).IsEquivalentTo([33, 66, 100], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -47,7 +47,7 @@ public class ZoneCalculatorTests
         // Assert
         await Assert.That(Rects(zones)).IsEquivalentTo(
             [new PixelRect(20, 20, 980, 240), new PixelRect(20, 260, 980, 480)],
-            CollectionOrdering.Matching);
+            EqualityComparer<PixelRect>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -59,7 +59,7 @@ public class ZoneCalculatorTests
         // Assert
         await Assert.That(Rects(zones)).IsEquivalentTo(
             [new PixelRect(100, 100, 500, 300), new PixelRect(150, 150, 550, 350), new PixelRect(200, 200, 600, 400)],
-            CollectionOrdering.Matching);
+            EqualityComparer<PixelRect>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -71,7 +71,7 @@ public class ZoneCalculatorTests
         // Assert
         await Assert.That(Rects(zones)).IsEquivalentTo(
             [new PixelRect(0, 0, 250, 500), new PixelRect(250, 0, 750, 500), new PixelRect(750, 0, 1000, 500)],
-            CollectionOrdering.Matching);
+            EqualityComparer<PixelRect>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -83,7 +83,7 @@ public class ZoneCalculatorTests
         // Assert
         await Assert.That(Rects(zones)).IsEquivalentTo(
             [new PixelRect(16, 16, 242, 484), new PixelRect(258, 16, 742, 484), new PixelRect(758, 16, 984, 484)],
-            CollectionOrdering.Matching);
+            EqualityComparer<PixelRect>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -95,7 +95,7 @@ public class ZoneCalculatorTests
         // Assert
         await Assert.That(Rects(zones)).IsEquivalentTo(
             [new PixelRect(0, 0, 250, 500), new PixelRect(250, 0, 750, 500), new PixelRect(750, 0, 1000, 250), new PixelRect(750, 250, 1000, 500)],
-            CollectionOrdering.Matching);
+            EqualityComparer<PixelRect>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -108,7 +108,7 @@ public class ZoneCalculatorTests
         IReadOnlyList<Zone> priorityGrid = ZoneCalculator.PriorityGrid(1200, 900, 11, spacing: 0);
 
         // Assert
-        await Assert.That(Rects(priorityGrid)).IsEquivalentTo(Rects(evenGrid), CollectionOrdering.Matching);
+        await Assert.That(Rects(priorityGrid)).IsEquivalentTo(Rects(evenGrid), EqualityComparer<PixelRect>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -141,7 +141,7 @@ public class ZoneCalculatorTests
         // Assert
         await Assert.That(Rects(zones)).IsEquivalentTo(
             [new PixelRect(16, 16, 984, 679), new PixelRect(16, 695, 984, 984)],
-            CollectionOrdering.Matching);
+            EqualityComparer<PixelRect>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
