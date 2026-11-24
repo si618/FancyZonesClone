@@ -31,7 +31,7 @@ The Windows projects build on Linux with `EnableWindowsTargeting`, but only the 
 
 ## Maintaining this repository
 
-- **Follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages and pull request titles.** A pull request squash-merges under its title, so the title becomes the commit subject in `git log`. Use the form `<type>[(scope)]: <description>`, in lowercase and the imperative, and keep it under 72 characters.
+- **Follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages and pull request titles.** A pull request squash-merges under its title, so the title becomes the commit subject in `git log`. Use the form `<type>[(scope)]: <description>`, in lowercase and the imperative, and keep it to 72 characters or fewer, counting the ` (#123)` that GitHub appends.
 
     | Type    | Use for                                      |
     | ------- | -------------------------------------------- |
@@ -42,7 +42,30 @@ The Windows projects build on Linux with `EnableWindowsTargeting`, but only the 
     | `ci`    | Workflow plumbing                            |
     | `chore` | Dependencies and housekeeping, as Renovate's |
 
-- **Write the pull request description as the squash commit's body.** Say what's different afterwards and what you ran to check it, then why, as the code stands without the change. Use only Markdown that reads as plain text: paragraphs, `##` headings, `-` lists, and inline code. Leave out tables, checkboxes, and inline links, because the commit wraps at 72 characters. End with one trailer per line, such as `Closes: #12` or `Refs: #12`.
+### Pull request descriptions
+
+A pull request squash-merges with its description as the commit body. GitHub renders the description as Markdown, but `git log` shows it as plain text wrapped at 72 characters, so write it to read well both ways. These rules follow the [awesome-humans writing style](https://awesome-humans.net/conventions/writing-style/#commit-messages-and-pull-requests).
+
+- **Start with `## What changed`.** Describe the change as a reader sees it, not file by file, and say what you ran to check it.
+- **Follow with `## Why`.** State the problem or the decision in the present tense, as the code stands without the change.
+- **Add another `##` section only for something the merged commit needs,** such as a setting to turn on before a workflow works. Put merge logistics, such as which branches need a rebase, in a comment, because the description becomes history.
+- **Use only Markdown that reads as plain text:** paragraphs, `##` headings, `-` lists, `**Label:**` leads, and inline code. Leave out tables, checkboxes, nested lists, and inline links, because the wrapping breaks them across lines.
+- **Link with references.** Write `#57` for an issue or pull request, and a short SHA for a commit. For any other link, use a reference-style link, `[text][1]`, with `[1]: https://…` on its own line before the trailers.
+- **End with trailers,** one per line in the last paragraph. Use `Closes: #12` for an issue the change finishes, and `Refs: #12` for one it only relates to.
+
+For example:
+
+```markdown
+## What changed
+
+The `global.json` SDK floor is 10.0.404, and the lock files are regenerated on that SDK. Checked with a Release build with `-warnaserror`, `dotnet format --verify-no-changes`, and the tests.
+
+## Why
+
+CI resolves SDK 10.0.404, which references ILCompiler 10.0.15. The lock files pin 10.0.14, so locked restore fails with NU1004.
+
+Refs: #44
+```
 
 ### Agent attribution
 
