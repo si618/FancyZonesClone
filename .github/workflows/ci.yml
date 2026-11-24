@@ -38,8 +38,6 @@ jobs:
         with:
           name: test-results
           path: artifacts/test-results
-      # After the tests, so a formatting difference doesn't hide their results.
-      - run: dotnet format --no-restore --verify-no-changes
       # Proves the Native AOT build still links on every change, which can't be checked without MSVC locally.
       # Native AOT compiles at publish time for one runtime identifier, so this step can't reuse the portable build
       # above: that's the one exception to publishing with --no-build. Releases come from release.yml.
@@ -50,3 +48,19 @@ jobs:
           path: |
             artifacts/publish/FancyZonesClone/release_win-x64/FancyZonesClone.exe
             artifacts/publish/FancyZonesClone/release_win-x64/*.dll
+
+  # A job of its own, so it reports in about a minute, and a formatting difference never hides build's test results
+  # or the Native AOT publish. Linux is enough: EnableWindowsTargeting restores the Windows projects here.
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: MinVer needs the tags to version the build.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore
+      - run: dotnet format --no-restore --verify-no-changes
