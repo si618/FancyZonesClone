@@ -19,9 +19,19 @@ dotnet format --verify-no-changes
 
 The Windows projects build on Linux with `EnableWindowsTargeting`, but only the Core tests run there. A change to the Windows layer is checked by the build alone until someone runs it on Windows, so say so when you report it. To check how monitors resolve on a real machine, run `FancyZonesClone.exe --diagnose`. Native AOT publish needs Windows with the MSVC build tools, and CI and release run it on `windows-latest`.
 
+## awesome-humans skills
+
+`.claude/skills/` holds three skills from the [awesome-humans .NET opinions](https://awesome-humans.net/dotnet/) with the `simon-mckenna` house profile, pinned by `skills-lock.json`. They carry the profile's opinions and templates, so read the opinions through them, not from the website's `llms.txt`.
+
+- **`follow-dotnet-opinions`:** use it whenever you write or change C#, a project or build file, or a workflow.
+- **`review-dotnet-project`:** use it to check the repository against the opinions. It reports and changes nothing.
+- **`research-dotnet-topic`:** use it to answer a .NET question with cited sources, such as whether to adopt a feature.
+
+To update the skills, run `npx skills update -p -y`, and commit `.claude/skills/` and `skills-lock.json` together.
+
 ## Conventions
 
-- **Follow the [awesome-humans .NET opinions](https://awesome-humans.net/dotnet/) with the `simon-mckenna` house profile** for all code, project structure, and tooling. When a rule here and the template disagree, the template wins unless this file says otherwise. TUnit replaces the template's xUnit default at the owner's request, so don't swap it back.
+- **Follow the awesome-humans .NET opinions through the skills above** for all code, project structure, and tooling. When a rule here and the template disagree, the template wins unless this file says otherwise. TUnit replaces the template's xUnit default at the owner's request, so don't swap it back.
 - **Treat warnings as errors everywhere.** Give every suppression a comment that says why.
 - **Put new logic in Core, with tests.** Keep Win32 and Avalonia out of Core, and keep the Windows layer a thin adapter. When a Windows-layer bug has logic in it, move that logic to Core so a test can cover it.
 - **Name tests `UnitOfWork_Scenario_ExpectedBehaviour`,** and mark their structure with `// Arrange`, `// Act`, and `// Assert` comments.

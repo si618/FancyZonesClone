@@ -1,0 +1,159 @@
+---
+targets: [net11.0]
+last-reviewed: 2026-11-15
+sources:
+  [
+    aaron-stannard,
+    andrew-lock,
+    dotnet-blog,
+    house:simon-mckenna,
+    khalid,
+    mark-seemann,
+    meziantou,
+    ms-learn,
+  ]
+---
+
+# CI & automation
+
+Treat supply-chain security as a requirement. Agents now write and run much of the code in a pipeline, so nobody reviews each step by hand.
+
+## Opinions
+
+- **Pin GitHub Actions to commit SHAs, not mutable tags.** A tag can move without warning, and a SHA can't. Enforce pinning in every repository, and script it when you have many. ([Meziantou: SHA pinning](https://www.meziantou.net/enable-sha-pinning-for-github-actions-across-personal-repositories.htm))
+- **Never interpolate user input into a workflow script.** Pass it in an environment variable, and parse it in the script. Meziantou calls interpolating an input into a `run` step "A common but unsafe pattern". ([Meziantou: Safely passing extra arguments](https://www.meziantou.net/safely-passing-extra-arguments-in-github-actions-workflows-using-powershell.htm))
+- **Pin the SDK and every package in CI.** `global.json` sets the SDK, and lock files or Central Package Management set the packages. A CI run must never pick up a version the repository didn't choose. ([Microsoft Learn: global.json overview](https://learn.microsoft.com/dotnet/core/tools/global-json), [Meziantou: Faster and Safer NuGet restore using Source Mapping and Lock files](https://www.meziantou.net/faster-and-safer-nuget-restore-using-source-mapping-and-lock-files.htm))
+- **If you restore from more than one feed, use package source mapping.** Without it, "If you have a package published on an internal feed... with the same name as a public package, the public package can be used instead". ([Meziantou: NuGet Packages: security risks and best practices](https://www.meziantou.net/nuget-packages-security-risks-and-best-practices.htm))
+  - Map every package to a source in one `nuget.config` at the repository root.
+  - Start its sources with `<clear/>`, so no inherited source survives.
+  - Leave no package pattern unmapped.
+
+  Mapping "applies only when NuGet downloads packages during restore, install, and update". Commands that query source metadata, such as `dotnet package add`, still "send package IDs to all configured sources". ([Microsoft Learn: Package Source Mapping](https://learn.microsoft.com/nuget/consume-packages/package-source-mapping)) A repository that restores only from nuget.org gains little: with one source, a same-named package has no second feed to come from.
+
+- **Treat warnings as errors in every build, with no CI condition.** Set `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in the root `Directory.Build.props`, as [templates/Directory.Build.props](../templates/Directory.Build.props) does, so a compiler, analyzer, or NuGet warning fails on the machine that introduces it. MSBuild's own warnings, such as MSB3277, need the `-warnaserror` switch, which [Pipeline shape](#pipeline-shape) adds in CI. Stannard enables it "because this prevents all sorts of rot from setting into the code base (i.e. NuGet package vulnerability warnings and deprecations have to be addressed immediately)". His project-structure skill and Abuhakmeh's typical `Directory.Build.props` both set it with no `Condition`. ([Stannard: Software 2.0: Planning and Verifying a Greenfield Project](https://aaronstannard.com/software-2.0-case-study-textforge/), [Stannard: project-structure](https://github.com/Aaronontheweb/dotnet-skills/blob/master/skills/project-structure/SKILL.md), [Abuhakmeh: Directory.Build.props: Share Settings Across .NET Projects](https://khalidabuhakmeh.com/posts/directory-build-props-share-settings-across-dotnet-projects/))
+- **Fix a warning instead of suppressing it, and give each suppression you keep a comment that says why.** That covers `#pragma warning disable`, `[SuppressMessage]`, and a `<NoWarn>` entry. Revert a suppression that has none. Stannard's Slopwatch skill lists `#pragma warning disable` and a project-level `<NoWarn>` among the shortcuts an agent takes to get a passing build, and says "Never accept these patterns". It allows an exception only with a reason: "Exceptions require justification", and "Document why in a code comment". Slopwatch is his own tool. `[SuppressMessage]` has a `Justification` property for the reason, and Seemann fills it in when he keeps CA2234 off one test helper. ([Stannard: dotnet-slopwatch](https://github.com/Aaronontheweb/dotnet-skills/blob/master/skills/slopwatch/SKILL.md), [Seemann: Warnings-as-errors friction](https://blog.ploeh.dk/2023/03/06/warnings-as-errors-friction/), [Microsoft Learn: Suppress code analysis warnings](https://learn.microsoft.com/dotnet/fundamentals/code-analysis/suppress-warnings))
+- **Treat vulnerability warnings as build errors everywhere.** NuGet Audit runs during restore, and "`NuGetAuditMode` defaults to `all` when a project targets `net10.0` or higher", so it checks the whole graph. ([Microsoft Learn: Auditing package dependencies for security vulnerabilities](https://learn.microsoft.com/nuget/concepts/auditing-packages)) `TreatWarningsAsErrors`, which [templates/Directory.Build.props](../templates/Directory.Build.props) sets, turns NU1901 to NU1904 into errors. Restore then fails on the day an advisory lands, even if nobody changed the graph. That's intended: triaging the advisory is the first step in servicing the branch.
+  - To suppress one advisory, add `NuGetAuditSuppress` with its URL, and a comment that gives the reason. ([Microsoft Learn: Excluding advisories](https://learn.microsoft.com/nuget/concepts/auditing-packages#excluding-advisories))
+  - Never use the documented shortcut, `<WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>`. It turns the vulnerability errors back into warnings, which are the warnings that cost most to ignore. ([Microsoft Learn: NuGet Warnings NU1901, NU1902, NU1903, NU1904](https://learn.microsoft.com/nuget/reference/errors-and-warnings/nu1901-nu1904))
+  - Never turn the audit off in the pipeline alone, which the documentation also offers.
+
+  .NET 10 prunes platform-provided packages from the graph before the audit, so the report is shorter. In the NuGet team's telemetry, "projects with these defaults have 70% fewer transitive vulnerability reports compared to projects using the previous defaults". ([Kolev: NuGet Package Pruning: Cleaner Dependencies and Actionable Vulnerability Reports](https://devblogs.microsoft.com/dotnet/nuget-package-pruning-in-dotnet-10/))
+
+- **Restrict what a package can run, not only which version restores.** A `PackageReference` can bring MSBuild props and targets, analyzers, and source generators. All of them run during restore, design-time build, and compile. A version pin decides which code you get, not whether it runs. List only the asset types a package needs:
+  - Use `IncludeAssets="compile;runtime"` for a library you only call.
+  - Use `PrivateAssets="all"` on build-only tooling, so it never flows to your consumers.
+  - Under Central Package Management, set both on the `PackageReference`, never the `PackageVersion`. A `PackageVersion` holds a package ID and version. For tooling that every project uses, add a `GlobalPackageReference` to `Directory.Packages.props` instead, which gets `PrivateAssets="All"` implicitly. NuGet 7.9 fixed a bug in which `dotnet add package` wrote `PrivateAssets` to the `PackageVersion` item. ([Microsoft Learn: Central Package Management](https://learn.microsoft.com/nuget/consume-packages/central-package-management#global-package-references), [Microsoft Learn: NuGet 7.9 Release Notes](https://learn.microsoft.com/nuget/release-notes/nuget-7.9))
+
+  A package that's mostly build logic needs more asset types than these, so rebuild and re-test after you tighten a reference. ([Meziantou: Limit what NuGet packages can do in your project](https://www.meziantou.net/limit-what-nuget-packages-can-do-in-your-project.htm))
+
+## Pipeline shape
+
+**Run four stages in order: restore, build, test, and publish. Each stage reuses the output of the one before it.** Pass `--no-restore` to build, and `--no-build` to test and publish, so no stage rebuilds with different flags.
+
+Pass the same `--configuration` to every stage. `dotnet publish` defaults to `Release` for current target frameworks, but for `dotnet build` and `dotnet test`, "The default for most projects is Debug". A `--no-build` stage with a different configuration looks for output that doesn't exist. ([Microsoft Learn: dotnet publish](https://learn.microsoft.com/dotnet/core/tools/dotnet-publish), [Microsoft Learn: dotnet build](https://learn.microsoft.com/dotnet/core/tools/dotnet-build), [Microsoft Learn: dotnet test with Microsoft.Testing.Platform](https://learn.microsoft.com/dotnet/core/tools/dotnet-test-mtp))
+
+1. **Restore.** If the repository commits `packages.lock.json` (`RestorePackagesWithLockFile=true`), pass `--locked-mode`, so a stale lock file fails the build. Without a lock file, the flag fails every restore with `NU1004`. The templates pin packages with Central Package Management in [templates/Directory.Packages.props](../templates/Directory.Packages.props), and [templates/Directory.Build.props](../templates/Directory.Build.props) turns lock files off, so the example restores without it.
+2. **Build.** Build once, in `Release`, with `-warnaserror`. Keep the switch even though the template sets `TreatWarningsAsErrors`. The property covers compiler and analyzer diagnostics. The switch also fails on MSBuild warnings, such as MSB3277 assembly version conflicts.
+   - Enforce style the same way: run analyzers in the build, and run `dotnet format --verify-no-changes` in a job of its own, beside the build job, as the example does. A formatting difference then reports in the time the check takes, not after the tests, and neither job's failure skips the other's steps. Meziantou's post runs the check as a separate `lint_csharp` job, and uses the flag's earlier name, `--check`. ([Meziantou: Enforce .NET code style in CI](https://www.meziantou.net/enforce-dotnet-code-style-in-ci-with-dotnet-format.htm), [Microsoft Learn: dotnet format](https://learn.microsoft.com/dotnet/core/tools/dotnet-format), [Meziantou: The Roslyn analyzers I use](https://www.meziantou.net/the-roslyn-analyzers-i-use.htm))
+3. **Test.** Run `dotnet test` on Microsoft.Testing.Platform (MTP). MTP needs the `test.runner` opt-in in `global.json`, as [testing.md](testing.md#framework-and-platform) describes. Don't set `DOTNET_TEST_RUNNER` in the pipeline: on the .NET 11 SDK it overrides `global.json`, so CI could run a different runner from a developer's machine. "If neither setting selects a runner, `dotnet test` uses VSTest", which fails an xunit.v3 4.0.0 project on the .NET 10 SDK and later. ([Microsoft Learn: dotnet test](https://learn.microsoft.com/dotnet/core/tools/dotnet-test))
+   - Upload TRX and coverage files as build artifacts, so you can diagnose a failure without a rerun.
+   - Under xunit.v3, write TRX with `--report-xunit-trx` and `--results-directory`, as in the example. `--coverage` writes the coverage file to the same directory, and needs the `Microsoft.Testing.Extensions.CodeCoverage` package, which [templates/projects/Example.Library.Tests.csproj](../templates/projects/Example.Library.Tests.csproj) references. Upload the results even when the step fails, because the failed run is the one you need them for.
+   - MTP rejects VSTest's `--logger trx`. For details, see [testing.md](testing.md#framework-and-platform).
+4. **Publish or pack.** Pass `--no-build`, and upload the output as the one artifact that deploy and release consume. Never rebuild for deployment.
+   - Don't pass `--output`. With the artifacts layout from [templates/Directory.Build.props](../templates/Directory.Build.props), a single-TFM publish without a RID goes to `artifacts/publish/<Project>/release`. Otherwise, the last folder gets a `_<tfm>` or `_<rid>` suffix. Pack output goes to `artifacts/package/<configuration>`, with no project folder. For details, see [project-structure.md](project-structure.md). ([Microsoft Learn: Artifacts output layout](https://learn.microsoft.com/dotnet/core/sdk/artifacts-output))
+   - Keep test projects out of the deploy artifact with `<IsPublishable>false</IsPublishable>`, as [templates/projects/Example.Library.Tests.csproj](../templates/projects/Example.Library.Tests.csproj) does. Without it, a solution-level publish writes the test host, and another copy of every referenced library, into `artifacts/publish`.
+
+The example uses GitHub Actions, but the stages work on any CI platform:
+
+```yaml
+# Least privilege: unless the repository says otherwise, the default token can
+# write to contents, and a build job doesn't need to.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
+        with:
+          global-json-file: global.json
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release -warnaserror
+      - run: dotnet test --no-build --configuration Release --report-xunit-trx --coverage --coverage-output-format cobertura --results-directory artifacts/test-results
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: test-results
+          path: artifacts/test-results
+      - run: dotnet publish --no-build --configuration Release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app
+          path: artifacts/publish
+
+  # A job of its own, so a formatting difference reports without waiting for
+  # the tests, and a failed test doesn't skip the check.
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
+        with:
+          global-json-file: global.json
+      - run: dotnet restore
+      - run: dotnet format --verify-no-changes --no-restore
+
+  # The build job uploads `app` whether or not the format check passes, so a
+  # job that deploys it waits for both.
+  # deploy:
+  #   needs: [build, format]
+```
+
+This repository runs the `checkout` and `setup-dotnet` pins. The `upload-artifact` pin is only an example. When you copy the workflow, resolve every SHA against the current release, and check the major version. A pinned SHA never reports that it's out of date, so pair SHA pinning with a dependency bot.
+
+**In the build job, a failed step hides the results of the steps after it, wherever the check goes.** A step runs only if every step before it succeeded: "A default status check of `success()` is applied" unless the step's `if` calls a status check function, such as `!cancelled()`. ([GitHub Docs: Evaluate expressions in workflows and actions](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#status-check-functions))
+
+- **A step before the build** hides the test results when the formatting is wrong, so a push that breaks both needs a run for each.
+- **A step after the tests** reports a formatting difference only when the tests finish, and not at all when a test fails.
+
+**The `format` job costs a second runner, and the `app` artifact no longer waits for the check.**
+
+- **It repeats the setup.** The job checks out the repository, installs the SDK, and restores again. It needs no build: after `dotnet restore`, `dotnet format` loads the solution itself, and "may restore, compile, and run analyzers". It can't reuse the build job's output, so the cost grows with the solution. ([Microsoft Learn: dotnet format](https://learn.microsoft.com/dotnet/core/tools/dotnet-format))
+- **Gate the deploy and the merge on both jobs.** The build job uploads the `app` artifact whether or not the `format` job passes. A job that deploys it lists both in `needs`, as the commented `deploy` job in the example does, so a failed check skips the deploy. Require both `build` and `format` as status checks on the branch: a rule that requires only `build` merges a formatting difference. ([GitHub Docs: Workflow syntax for GitHub Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idneeds), [GitHub Docs: About protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-status-checks-before-merging))
+
+## Artifact signing
+
+**Spend your signing effort on provenance and credentials, not on author signing.** For NuGet packages:
+
+- Ship deterministic builds, with Source Link, symbols, and package validation enabled. ([Meziantou: Publishing a NuGet package using GitHub Actions](https://www.meziantou.net/publishing-a-nuget-package-following-best-practices-using-github.htm))
+- Publish with trusted publishing, which leaves no credential in the repository. The workflow trades "a short-lived GitHub OIDC token to request a temporary, single-use NuGet API key", and "These keys expire quickly (≈ 1 hour)". That removes a secret whose "lifecycle... is notoriously difficult" to manage. ([Tvorun and Iyer: New Trusted Publishing enhances security on NuGet.org](https://devblogs.microsoft.com/dotnet/enhanced-security-is-here-with-the-new-trust-publishing-on-nuget-org/), [Lock: Publishing NuGet packages from GitHub actions the easy way with Trusted Publishing](https://andrewlock.net/easily-publishing-nuget-packages-from-github-actions-with-trusted-publishing/), [Microsoft Learn: Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing))
+- If your CI host can't present an OIDC token, use a scoped API key stored as a repository secret, and name an owner to rotate it. nuget.org caps a new key at 30 days. ([.NET Team: Strengthening NuGet Supply Chain Security: Reducing API Key Lifetime](https://devblogs.microsoft.com/dotnet/strengthening-nuget-supply-chain-security-reducing-api-key-lifetime/))
+- Author-sign only if your organisation already runs certificate infrastructure. A package gets a signature without it: "all packages uploaded to nuget.org are automatically repository signed". ([Microsoft Learn: Signed packages](https://learn.microsoft.com/nuget/reference/signed-packages-reference), [Microsoft Learn: Sign a NuGet package](https://learn.microsoft.com/nuget/create-packages/sign-a-package))
+
+Pinning protects consumers more than a signature does: locked restore, a pinned SDK, and SHA-pinned actions decide what goes into the package.
+
+Don't add a signer allow list (`signatureValidationMode` set to `require`, with `trustedSigners` in `nuget.config`) unless you can maintain it. Each certificate rotation fails installs with `NU3034` until you add the new SHA-256 fingerprint beside the old ones. Microsoft rotated its author-signing certificate from 2026-09-23. ([.NET Blog: Microsoft is updating its author-signing certificate starting September 23, 2026](https://devblogs.microsoft.com/dotnet/microsoft-author-signing-certificate-update-2026/))
+
+## Dependency updates
+
+**Use Renovate, with one shared configuration preset across every repository.** A preset is "a named set of rules for updating dependencies" that each repository extends, so one change reaches all of them. Meziantou's preset pins GitHub Actions to digests with `helpers:pinGitHubActionDigests`, and a regex in the configuration updates `.nuspec` dependencies, which Renovate doesn't read by default. He finds Renovate "more configurable than Dependabot". ([Meziantou: Sharing the Renovate configuration across multiple projects](https://www.meziantou.net/sharing-the-renovate-configuration-across-multiple-projects.htm), [Meziantou: Update dependencies in nuspec with Renovate](https://www.meziantou.net/update-dependencies-in-nuspec-file-using-renovate.htm)) Renovate's `nuget` manager also updates the SDK version in `global.json`. ([Renovate: NuGet manager](https://docs.renovatebot.com/modules/manager/nuget/))
+
+Merge updates only through the pipeline above. An update that skips locked restore and tests is a supply-chain risk.
+
+/// house | simon-mckenna
+
+**House:** Leave the bot's dependency dashboard issue open. Renovate manages it, and closing it doesn't opt out: the next run re-creates it under a new number and notifies everyone again.
+
+- **It's the only list of pending updates.** Updates that `prConcurrentLimit` delays, or that a failing branch blocks, appear nowhere else. Its checkboxes trigger an off-schedule run without a configuration change.
+- **It's where you approve gated updates.** With `dependencyDashboardApproval` set, Renovate opens a pull request only after you tick the update's box on the dashboard.
+- **Leave `dependencyDashboardAutoclose` off.** It closes the issue whenever nothing is pending. A new issue every cycle costs more attention than one that stays open, and the closed issue hides a growing backlog.
+- If a stale-issue bot flags the dashboard, exempt it by label.
+
+Two rules keep the dashboard useful as a repository grows:
+
+- **Don't use its list of detected dependencies as an audit record.** GitHub caps an issue body at 65,536 characters, so Renovate trims the list in a large repository. Check what the bot manages in a configuration test or a scheduled dry run, where truncation fails visibly.
+- **Keep the pending list short, and give it an owner.** People stop reading a dashboard with hundreds of open entries. Fix the cause in the grouping and scheduling policy: group related updates, widen the schedule until the queue clears, and name the team that works through it.
+
+///

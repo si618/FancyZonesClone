@@ -1,0 +1,70 @@
+<!-- awesome-humans/dotnet template | targets: net11.0, csharp-15, fsharp-11 | last-reviewed: 2026-11-18 | sources: aaron-stannard, dotnet-blog, khalid, meziantou, ms-learn -->
+<!-- Copy to the repository root. Every project inherits these settings. Override one in a project only with a recorded reason. -->
+<Project>
+
+  <PropertyGroup Label="Output layout">
+    <!-- One artifacts/<type>/<project>/<pivot> root for all build output. Set it here or on the
+         command line: MSBuild reads it before project evaluation, so a .csproj setting fails with
+         NETSDK1199 (opinions/project-structure.md). -->
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Targets and language">
+    <TargetFramework>net11.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <!-- Makes nullable warnings errors, so the compiler enforces the annotations (opinions/csharp.md). -->
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Quality gates">
+    <!-- On in every build, with no CI condition, so a compiler, analyzer, or NuGet warning fails
+         on the machine that introduces it. MSBuild's own warnings, such as MSB3277, need the
+         -warnaserror switch. This includes NuGet Audit. NU1901 to NU1904 fail restore on purpose,
+         even on a branch nobody changed, on the day an advisory lands against the dependency
+         graph. To suppress one advisory, use NuGetAuditSuppress with its URL and a reason. Never
+         list the codes in WarningsNotAsErrors. Suppress any other warning, with NoWarn or a
+         pragma, only with a comment that says why (opinions/ci.md). -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Packaging hygiene">
+    <!-- Nothing packs by default. A project that ships as a NuGet package sets IsPackable to true
+         in its project file. Directory.Build.targets reads the value to tell a library from
+         application code (opinions/runtime-performance.md). -->
+    <IsPackable>false</IsPackable>
+    <!-- Central Package Management (Directory.Packages.props) pins each package's version, not its content.
+         packages.lock.json also records each package's hash, so restore fails if a feed serves different bytes for a
+         pinned version. To get that check, set this to true and restore with locked mode in CI (opinions/ci.md). -->
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- The documentation file feeds IDE tooltips and OpenAPI descriptions. CS1591 is suppressed, so a
+         public member without a documentation comment doesn't fail the build. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup Label="Analyzers">
+    <!-- Correctness rules that the SDK set misses, such as culture-sensitive strings,
+         CancellationToken forwarding, and async pitfalls (opinions/csharp.md). The version is
+         pinned in Directory.Packages.props. -->
+    <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+    <!-- Fails a C# or Visual Basic build on every use of StringComparison.InvariantCulture
+         and InvariantCultureIgnoreCase, which BannedSymbols.txt, beside this file, lists. The
+         .NET SDK's own check for them (CA1309) looks only at Equals and Compare. Roslyn
+         analyzers don't run in an F# build, so an F# project gets no check
+         (opinions/globalization.md). -->
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+  </ItemGroup>
+
+  <PropertyGroup Label="Deterministic builds">
+    <Deterministic>true</Deterministic>
+    <!-- GitHub Actions and GitLab CI set CI. Azure Pipelines sets TF_BUILD instead. -->
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true' or '$(TF_BUILD)' == 'True'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+</Project>

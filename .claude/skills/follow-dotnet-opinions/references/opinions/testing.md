@@ -1,0 +1,214 @@
+---
+targets: [net11.0, csharp-15]
+last-reviewed: 2026-11-14
+sources:
+  [
+    andrew-lock,
+    dotnet-blog,
+    house:simon-mckenna,
+    mark-seemann,
+    meziantou,
+    ms-learn,
+  ]
+---
+
+# Testing
+
+Hold tests to the same review bar and conventions as production code.
+
+/// house | simon-mckenna
+
+**House:** Name tests `UnitOfWork_Scenario_ExpectedBehaviour`, and mark each test's Arrange, Act, and Assert sections with comments. Leave out the marker for a section with no statements of its own. When the only setup is a literal passed to the call, inline it and mark that line `// Act`. When the call and the check are one expression, such as `Assert.Throws`, mark it `// Act & Assert`. A marker over an empty section labels nothing, and a fixed set of markers lets a reviewer or a script check the rule. ([HOUSE-OPINIONS.md](../HOUSE-OPINIONS.md))
+
+```csharp
+public class BasketTests
+{
+    [Fact]
+    public void Total_MultipleItemsAdded_SumsAllItemPrices()
+    {
+        // Arrange
+        var basket = new Basket();
+        basket.Add(10.00m);
+        basket.Add(2.50m);
+
+        // Act
+        decimal total = basket.Total;
+
+        // Assert
+        Assert.Equal(12.50m, total);
+    }
+
+    [Fact]
+    public void Total_EmptyBasket_IsZero()
+    {
+        // Act
+        decimal total = new Basket().Total;
+
+        // Assert
+        Assert.Equal(0m, total);
+    }
+
+    [Fact]
+    public void Add_NegativePrice_ThrowsArgumentOutOfRangeException()
+    {
+        // Arrange
+        var basket = new Basket();
+
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => basket.Add(-1.00m));
+    }
+}
+```
+
+///
+
+## Framework and platform
+
+- **Use xUnit v3 on Microsoft.Testing.Platform (MTP) for new test projects, and opt in to the MTP runner in `global.json`.** xunit.v3 includes a native MTP runner, so each test project builds to an executable that `dotnet run` runs directly, without VSTest's slower process model.
+  - `dotnet test` uses MTP only with the runner opt-in below. Without it, the SDK uses VSTest, and xunit.v3 4.0.0 and later (MTP v2) fails on the .NET 10 SDK and later with `Testing with VSTest target is no longer supported`.
+  - On xunit.v3 3.x, the same mistake runs **zero** tests and exits with code 0.
+  - On the .NET 11 SDK, the `DOTNET_TEST_RUNNER` environment variable "accepts VSTest or Microsoft.Testing.Platform, without regard to case, and overrides the global.json value". Keep the opt-in in `global.json`, where every machine reads it, and check for the variable when `dotnet test` picks VSTest despite the opt-in. ([Microsoft Learn: dotnet test](https://learn.microsoft.com/dotnet/core/tools/dotnet-test))
+
+  ```json
+  {
+    "sdk": { "version": "11.0.100", "rollForward": "latestFeature" },
+    "test": { "runner": "Microsoft.Testing.Platform" }
+  }
+  ```
+
+  Don't use `<TestingPlatformDotnetTestSupport>` instead. It belongs to "VSTest mode": it makes Microsoft.Testing.Platform.MSBuild redirect the `VSTest` target to run MTP applications, which MTP v2 no longer supports on the .NET 10 SDK and later. Setting it doesn't select MTP mode, so the error above stays. With the opt-in, remove the property, "as it's no longer required". MSTest and NUnit also run on MTP. ([Microsoft Learn: Testing with dotnet test](https://learn.microsoft.com/dotnet/core/testing/unit-testing-with-dotnet-test), [Microsoft Learn: Microsoft.Testing.Platform overview](https://learn.microsoft.com/dotnet/core/testing/microsoft-testing-platform-intro))
+
+  ```xml
+  <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+      <IsPublishable>false</IsPublishable>
+      <OutputType>Exe</OutputType>
+      <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    </PropertyGroup>
+    <ItemGroup>
+      <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+      <PackageReference Include="xunit.v3" />
+    </ItemGroup>
+  </Project>
+  ```
+
+  - The project sets no `TargetFramework`, `Nullable`, or `IsPackable`, because [templates/Directory.Build.props](../templates/Directory.Build.props) sets them for every project. `IsPublishable` keeps the test host out of a solution-level publish, as [ci.md](ci.md#pipeline-shape) describes.
+  - The references have no version, because Central Package Management pins them in [templates/Directory.Packages.props](../templates/Directory.Packages.props). For details, see [project-structure.md](project-structure.md).
+  - There's no `Microsoft.NET.Test.Sdk` reference. That package is for VSTest, and `xunit.v3` needs nothing else to run tests under MTP. `Microsoft.Testing.Extensions.CodeCoverage` adds the `--coverage` option that [Coverage](#coverage) and the [ci.md](ci.md#pipeline-shape) workflow pass. Without it, MTP rejects `--coverage` the way it rejects `--logger`, as described below.
+  - Don't pin `Microsoft.Testing.Platform`. xunit.v3 4.0.0 brings MTP v2, and under Central Package Management your pin overrides its version through transitive pinning. A pin below the version xunit.v3 needs fails restore with NU1109. A pin a major version above it restores and builds, and then every test run throws `TypeLoadException`.
+    <!-- Verified: xunit.v3 4.0.3 with Microsoft.Testing.Platform 1.9.1 or 2.0.2 pinned gives NU1109, and xunit.v3 3.2.2 with 2.5.2 pinned gives the TypeLoadException, on SDK 11.0.100 (2026-11-15) -->
+
+- **Moving a suite from VSTest to MTP breaks two things the build doesn't catch.**
+  - **`--logger` isn't an MTP option.** VSTest's `--logger "console;verbosity=normal"` or `--logger trx` makes the test application exit with code 5 (invalid command-line arguments) before any test runs. Every CI line that passes it fails as soon as `global.json` opts in. Each MTP reporter registers its own option. For TRX, use `--report-xunit-trx`, which is built into xunit.v3. `--report-trx`, from Microsoft's migration guide, needs the `Microsoft.Testing.Extensions.TrxReport` package and fails the same way without it. ([Microsoft Learn: Migration guide from VSTest to Microsoft.Testing.Platform](https://learn.microsoft.com/dotnet/core/testing/migrating-vstest-microsoft-testing-platform), [Microsoft Learn: Microsoft.Testing.Platform exit codes](https://learn.microsoft.com/dotnet/core/testing/microsoft-testing-platform-exit-codes), [xUnit.net: Microsoft Testing Platform](https://xunit.net/docs/getting-started/v3/microsoft-testing-platform))
+  - **A multi-targeted test project runs its target frameworks concurrently.** "MTP runs test modules in parallel by default", up to `Environment.ProcessorCount`, and a multi-targeted project builds one test executable for each target framework. A fixture with a fixed temporary directory, port, file, or database name now races the other framework's process, and one run's `Dispose` deletes a directory the other is writing to. Make that state unique per instance, for example with `Guid.NewGuid()` in the name. `--max-parallel-test-modules 1` hides the race and gives up MTP's speed. ([Microsoft Learn: Migration guide from VSTest to Microsoft.Testing.Platform](https://learn.microsoft.com/dotnet/core/testing/migrating-vstest-microsoft-testing-platform), [Microsoft Learn: dotnet test command with Microsoft.Testing.Platform](https://learn.microsoft.com/dotnet/core/tools/dotnet-test-mtp))
+
+  This is migration guidance. Drop it when VSTest workflows are rare, or re-date it. **Review by 2027-11-30.**
+
+- **Leaving VSTest saves more time than changing frameworks.** Meziantou benchmarked xUnit v3 4.0.0, NUnit 4.6.1, MSTest 4.4.0, and TUnit 1.65.68 on the .NET 10 SDK with up to 10,000 tests. VSTest was 4.9 times slower than the MTP executable for xUnit v3, 5.1 times for MSTest, and 1.5 times for NUnit. He puts that at three to four times the difference between frameworks. Per test, the frameworks range from 15 µs (MSTest) through 42 µs (TUnit) and 56 µs (xUnit v3) to 85 µs (NUnit). The numbers are a reason to keep the `global.json` opt-in, not to leave xUnit. ([Meziantou: Benchmarking .NET test frameworks: xUnit v3, NUnit, MSTest, and TUnit](https://www.meziantou.net/benchmarking-dotnet-test-frameworks-xunit-v3-nunit-mstest-and-tunit.htm))
+
+- **If the app ships with Native AOT, add a native test run beside the managed suite.** Run the managed suite on every change for fast feedback. For the native run, publish one representative C# test project with `<PublishAot>true</PublishAot>`, and run the executable. Trimming and reflection-free serialization change behaviour that a managed run can't see.
+  - In the MSTest post's example, `System.Text.Json` is what fails, with `InvalidOperationException`, because reflection-based serialization is off. Fix it with a `[JsonSerializable]` context in the app, not in the test.
+  - The native project references `xunit.v3.aot.mtp-v2` instead of `xunit.v3`. The AOT package replaces the reflection-based one, so it can't share a project with the managed suite.
+  - Keep F# test projects in the managed run: "at this time the only language supported for Native AOT is C#".
+
+  ([xUnit.net: Testing with Native AOT](https://xunit.net/docs/getting-started/v3/native-aot), [.NET Blog: Test what you ship: MSTest and Native AOT](https://devblogs.microsoft.com/dotnet/mstest-source-generation/), [Meziantou: Benchmarking .NET test frameworks: xUnit v3, NUnit, MSTest, and TUnit](https://www.meziantou.net/benchmarking-dotnet-test-frameworks-xunit-v3-nunit-mstest-and-tunit.htm))
+
+## Integration testing
+
+- **Integration-test ASP.NET Core apps with `WebApplicationFactory<TEntryPoint>` instead of unit-testing controllers or handlers.** `Microsoft.AspNetCore.Mvc.Testing` runs the real app on "a test web host and an in-memory test server". A few factory tests catch the routing, binding, and registration bugs that controller unit tests miss. Unit-test the domain logic the endpoints call, not the endpoints. ([Microsoft Learn: Integration tests in ASP.NET Core](https://learn.microsoft.com/aspnet/core/test/integration-tests), [Lock: Should you unit-test API/MVC controllers?](https://andrewlock.net/should-you-unit-test-controllers-in-aspnetcore/))
+- **Replace services for a test with `ConfigureTestServices`, scoped by `WithWebHostBuilder`.** ([Microsoft Learn: Integration tests in ASP.NET Core](https://learn.microsoft.com/aspnet/core/test/integration-tests))
+
+## Deterministic time
+
+- **Test time-dependent code through an injected `TimeProvider`, using `FakeTimeProvider` from `Microsoft.Extensions.TimeProvider.Testing`. Never use `Thread.Sleep` or the real clock.** [datetime.md](datetime.md#testing-time) covers how to drive it, the large-`Advance` caveat, the instants to test (DST gaps and overlaps, leap days, and ISO week year boundaries), and the analyzer rules that ban custom clocks.
+- **Give each test one clock: construct `FakeTimeProvider` with an explicit start, and derive every other date from it.** A test of an awkward instant has to name that instant. Name it once, as the provider's start.
+  - Arrange with `time.GetUtcNow()`, and move time with `Advance`.
+  - Assert time-derived results against `time.Start` plus the elapsed time, so the expected value visibly follows from the input.
+
+  Two literals six minutes apart pass today, but the next reviewer has to work out how they relate. A hand-typed expected value repeats the arithmetic the code under test should do. For the two constructor overloads that break this rule, see [datetime.md](datetime.md#testing-time). ([Lock: Avoiding flaky tests with TimeProvider and ITimer](https://andrewlock.net/exploring-the-dotnet-8-preview-avoiding-flaky-tests-with-timeprovider-and-itimer/) for `Advance` and `GetUtcNow`)
+
+  Before: two unrelated literals, which the reader has to compare.
+
+  ```csharp
+  public class TokenValidatorTests
+  {
+      [Fact]
+      public void IsExpired_LifetimeElapsed_ReturnsTrue()
+      {
+          // Arrange
+          var token = new Token(issuedAt: new DateTimeOffset(2026, 10, 25, 0, 57, 0, TimeSpan.Zero), lifetime: TimeSpan.FromMinutes(5));
+          var validator = new TokenValidator(new FakeTimeProvider(new DateTimeOffset(2026, 10, 25, 1, 3, 0, TimeSpan.Zero)));
+
+          // Act
+          bool expired = validator.IsExpired(token);
+
+          // Assert
+          Assert.True(expired);
+      }
+  }
+  ```
+
+  After: one clock, one chosen start, and the test checks elapsed time. The start is six minutes before the EU fall-back, in a zone that observes it, so the local clock goes from 02:57 CEST back to 02:03 CET while six minutes pass. A validator that compared local clock times would call the token unexpired, and this test catches it.
+
+  ```csharp
+  public class TokenValidatorTests
+  {
+      [Fact]
+      public void IsExpired_LifetimeElapsedAcrossFallBack_ReturnsTrue()
+      {
+          // Arrange
+          var time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 25, 0, 57, 0, TimeSpan.Zero));
+          time.SetLocalTimeZone(TimeZoneInfo.FindSystemTimeZoneById("Europe/Paris"));
+          var lifetime = TimeSpan.FromMinutes(5);
+          var token = new Token(issuedAt: time.GetUtcNow(), lifetime);
+          var validator = new TokenValidator(time);
+
+          // Act
+          time.Advance(TimeSpan.FromMinutes(6));
+
+          // Assert
+          Assert.Equal(time.Start.Add(lifetime), token.ExpiresAt);
+          Assert.True(validator.IsExpired(token));
+      }
+  }
+  ```
+
+## Output and scale
+
+- **Use snapshot testing for complex serialized output,** such as generated code, API payloads, and rendered documents, instead of asserting each field. ([Meziantou: Snapshot testing](https://www.meziantou.net/snapshot-testing-in-dotnet-with-meziantou-framework-snapshottesting.htm))
+
+  Keep deterministic builds on for a C# test project that uses `Meziantou.Framework.SnapshotTesting`: it needs no fix. Snapshot libraries locate `.verified` files from the test's source path, which `ContinuousIntegrationBuild` and `DeterministicSourcePaths` rewrite to `/_/…`. The package handles that itself. Its MSBuild target generates a `[ModuleInitializer]` that maps each `SourceRoot`'s `MappedPath` back to the real directory. ([Meziantou: Reproducible builds and snapshot testing](https://www.meziantou.net/reproducible-builds-and-snapshot-testing-handling-file-paths-in-dotnet.htm)) The target runs only for C#, so an F# test project that compares snapshots still can't find them in a deterministic build.
+
+  <!-- Verified: with CI=true in a git repository, [CallerFilePath] gives /_/tests/…, and Snapshot.Validate finds its .verified file, on Meziantou.Framework.SnapshotTesting 3.1.21 / SDK 11.0.100 (2026-11-15). The C# condition is read from the package's SourceRootRegistration.targets, not tested. -->
+
+- **Measure a slow CI suite, then shard it deterministically across parallel jobs.** Sharding helps CPU-bound suites far more than I/O-bound ones. ([Meziantou: Test sharding](https://www.meziantou.net/split-dotnet-test-projects-into-shards-with-meziantou-shardedtest.htm))
+
+## Coverage
+
+- **Collect line coverage on every CI run, and use it to find untested code, not to measure quality.** Coverage shows which lines ran, not whether a test checked them. Under MTP, reference `Microsoft.Testing.Extensions.CodeCoverage`, as [templates/projects/Example.Library.Tests.csproj](../templates/projects/Example.Library.Tests.csproj) does, and pass `--coverage --coverage-output-format cobertura` to `dotnet test`. The default format is the binary `coverage`, and the test project itself is excluded by default. ([Microsoft Learn: Code coverage](https://learn.microsoft.com/dotnet/core/testing/microsoft-testing-platform-code-coverage), [Microsoft Learn: Use code coverage for unit testing](https://learn.microsoft.com/dotnet/core/testing/unit-testing-code-coverage), [Meziantou: Is the code coverage a sufficient metric?](https://www.meziantou.net/is-the-code-coverage-a-sufficient-metric.htm))
+
+## Seeing tests fail
+
+- **See every test fail on its assertion before you trust it to pass.** A test that has never failed might assert a tautology or lock in a bug, and coverage and a green run can't tell it from a working test. Writing the test first isn't enough: a test that failed only because the member didn't exist might pass whatever the member does. After a test passes, break the code under test once per assertion, and see the test fail on that assertion's line. Then revert, and see it pass. ([Seemann: Tautological assertion](https://blog.ploeh.dk/2019/10/14/tautological-assertion/), [Seemann: Epistemology of software](https://blog.ploeh.dk/2025/10/20/epistemology-of-software/), [Seemann: Empirical Characterization Testing](https://blog.ploeh.dk/2025/11/03/empirical-characterization-testing/))
+- **Review a passing suite as the devil's advocate.** Write the simplest wrong implementation that passes every test, then add a test case that catches it. Stop when a wrong implementation takes more work than the correct one. Round trips are the usual gap: two identity functions pass any test that only compares output with input, so assert the intermediate value too. ([Seemann: Devil's advocate](https://blog.ploeh.dk/2019/10/07/devils-advocate/))
+
+  ```csharp
+  [Fact]
+  public void FahrenheitToCelsius_RoundTrip_ReturnsOriginalReading()
+  {
+      // Arrange
+      double celsius = 37d;
+
+      // Act
+      double fahrenheit = Temperature.CelsiusToFahrenheit(celsius);
+      double roundTripped = Temperature.FahrenheitToCelsius(fahrenheit);
+
+      // Assert
+      Assert.Equal(98.6d, fahrenheit, 1e-9); // fails if both conversions return their input
+      Assert.Equal(celsius, roundTripped, 1e-9);
+  }
+  ```
+
+## F#
+
+- **Use the same xUnit v3 stack for F# tests.** Put `[<Fact>]` on `let`-bound functions, with no test class. For the reasoning and an example, see [fsharp.md](fsharp.md#testing-f).

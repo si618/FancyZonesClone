@@ -1,0 +1,29 @@
+<!-- awesome-humans/dotnet template | targets: net11.0, csharp-15 | last-reviewed: 2026-11-14 | sources: house:simon-mckenna, ms-learn -->
+<!-- Test project on Microsoft.Testing.Platform with xUnit v3. `dotnet test` runs it through the
+     runner opt-in in global.json. Don't add TestingPlatformDotnetTestSupport: it's the VSTest
+     bridge, which MTP v2 (xunit.v3 4.0.0) rejects on the .NET 10 SDK and later. -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Keeps solution-level publish output for deployment only. Without it, the test host and a
+         second copy of every referenced library go into artifacts/publish (opinions/ci.md). -->
+    <IsPublishable>false</IsPublishable>
+    <!-- Required: xunit.v3 test projects build to an executable under
+         Microsoft.Testing.Platform, and the build fails without this. -->
+    <OutputType>Exe</OutputType>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <!-- **House:** CA1707 (no underscores in member names) contradicts the test-naming
+         convention UnitOfWork_Scenario_ExpectedBehaviour (opinions/testing.md). The
+         convention wins in test projects, and CA1707 still applies to shipping code. -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Adds the coverage option to the test executable, for the CI coverage step
+         (opinions/testing.md). -->
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+    <PackageReference Include="xunit.v3" />
+    <ProjectReference Include="../../src/Example.Library/Example.Library.csproj" />
+  </ItemGroup>
+
+</Project>

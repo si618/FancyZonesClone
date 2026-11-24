@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "skills": {
+    "follow-dotnet-opinions": {
+      "source": "awesome-humans.net",
+      "sourceUrl": "https://awesome-humans.net/dotnet/simon-mckenna",
+      "sourceType": "well-known",
+      "computedHash": "9483edf78a03df72373ae8fec2708402ce63e10dd5be4ea543ec7a0aca9c4dd5",
+      "wellKnownDigest": "sha256:6b1da0198f7afd2eca29be0eed2b8a4ed85a2f2f6ca970fb0749e98858107171"
+    },
+    "research-dotnet-topic": {
+      "source": "awesome-humans.net",
+      "sourceUrl": "https://awesome-humans.net/dotnet/simon-mckenna",
+      "sourceType": "well-known",
+      "computedHash": "61742f8170ffe64f683b99cf4786ccaecc845b98857c2547d560a0a76c7fa24d",
+      "wellKnownDigest": "sha256:2e5cef91ccbac3a4d8bcf9b2431eea777cf2e264034ed80db3157aed12e3e049"
+    },
+    "review-dotnet-project": {
+      "source": "awesome-humans.net",
+      "sourceUrl": "https://awesome-humans.net/dotnet/simon-mckenna",
+      "sourceType": "well-known",
+      "computedHash": "edef8476d78f0cf6c2c38e58d0fc0f70b1f0e19ac41d04da9b8d28e43cc98583",
+      "wellKnownDigest": "sha256:b7287736b0485f28fd8623d5c3f3c45962d0eeeacb1f2b2b3709edeaf32f9638"
+    }
+  }
+}

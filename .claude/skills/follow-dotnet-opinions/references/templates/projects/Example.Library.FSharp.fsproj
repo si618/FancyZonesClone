@@ -1,0 +1,12 @@
+<!-- awesome-humans/dotnet template | targets: net11.0, fsharp-11 | last-reviewed: 2026-11-14 | sources: ms-learn -->
+<!-- An F# project inherits the same settings from Directory.Build.props. F# compiles files in the order listed below. -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- F# 11 compiles in parallel by default, so the project sets no ParallelCompilation property (opinions/fsharp.md). -->
+
+  <ItemGroup>
+    <Compile Include="Domain.fs" />
+    <Compile Include="Library.fs" />
+  </ItemGroup>
+
+</Project>

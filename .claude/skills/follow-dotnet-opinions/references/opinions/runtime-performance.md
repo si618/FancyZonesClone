@@ -1,0 +1,182 @@
+---
+targets: [net11.0, csharp-15]
+last-reviewed: 2026-11-14
+sources:
+  [
+    andrew-lock,
+    ardalis,
+    dotnet-blog,
+    jetbrains-dotnet,
+    jon-skeet,
+    meziantou,
+    ms-learn,
+    stephen-cleary,
+    stephen-toub,
+    steve-gordon,
+  ]
+---
+
+# Runtime & performance
+
+The .NET 11 JIT optimizes idiomatic code best. Optimize what you've measured, not what you've heard is slow.
+
+## Opinions
+
+- **Write idiomatic C#.** Since .NET 10, the JIT applies escape analysis, stack allocation of small objects, a default inlining budget that's more than doubled, and bounds-check elimination to plain code. `unsafe` code and unusual patterns written to help the JIT usually block those optimizations. ([Toub: Performance Improvements in .NET 10](https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-10/)) On .NET 11, go back over the workarounds you already have:
+  - **Rewrite pointer and `Unsafe` loops that exist only to avoid bounds checks.** "Unsafe code written to work around the JIT is a snapshot of what the JIT could do at the time that code was written", so "it's worth rewriting them with safe, bounds-checked C# and measuring again on .NET 11". Keep `unsafe` for interop.
+  - **Stop reordering reads to put the largest index first.** The JIT now merges the bounds checks of several constant-index reads in a block into one, so the manual version is "no longer necessary".
+  - **Write `i < length` in a loop condition, not `i != length`.** Loop cloning now handles `!=` too, but only under conditions such as a stride of exactly 1 or -1.
+
+  ([Toub: Performance Improvements in .NET 11](https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-11/))
+
+- **Profile first, then benchmark the inner loop.** Find the bottleneck with a profiler, such as dotTrace or PerfView, then iterate on it with BenchmarkDotNet. The two report different allocation numbers because of GC padding and alignment. Use the benchmark to compare inner-loop changes, and the profiler to find where allocations come from. ([Gordon: The Grand Mystery of the Missing 18 Bytes](https://www.stevejgordon.co.uk/the-grand-mystery-of-the-missing-18-bytes), [JetBrains: Your AI Agent Keeps Missing The Real Bottleneck. JetBrains Rider Can Fix It Now.](https://blog.jetbrains.com/dotnet/2026/06/25/performance-profiling-agent-skill-in-rider/))
+- **Use `Span<T>` on parsing and formatting hot paths, and `ArrayPool<T>` for large temporary buffers.** For examples, see [`Span<T>` and `ArrayPool<T>`](#spant-and-arraypoolt). Gordon's JSON property encryption is a worked case: it rents its buffers from `ArrayPool<byte>` and writes through spans. ([Gordon: Encrypting Properties with System.Text.Json and a TypeInfoResolver Modifier (Part 2)](https://www.stevejgordon.co.uk/encrypting-properties-with-system-text-json-and-a-typeinforesolver-modifier-part-2))
+- **At each GA release, read Toub's "Performance Improvements in .NET X" post.** It lists what the runtime now optimizes by itself, which tells you which manual optimizations to delete. ([Toub: Performance Improvements in .NET 11](https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-11/))
+
+## Immutable collections
+
+**Choose an immutable collection by how you build it.** `ImmutableList<T>` and `ImmutableDictionary<K,V>` are trees built for incremental change: `Add` returns a new collection that shares most of the old one, but every read walks the tree.
+
+Most application state is built once, at startup or on refresh, then read constantly and replaced whole. For that, use `ImmutableArray<T>` and `FrozenDictionary<K,V>`. They cost more to build, but they're flat, so reads are fast. Skeet's validation pass over election data dropped from 5.5 ms to 0.826 ms after the switch, "due to it performing lots of read accesses". ([Skeet: Changing Immutable Collections](https://codeblog.jonskeet.uk/2025/12/31/changing-immutable-collections/))
+
+Keep the `Immutable*` trees and builders only for incremental change, such as a growing snapshot that you hand to concurrent readers between edits. When you migrate, check for `default`: `ImmutableArray<T>` is a struct, so its default is a valid but unusable value where `ImmutableList<T>` was `null`. Unwrap a nullable `ImmutableArray<T>?` field with `.Value` or an `is` pattern before you use it.
+
+## Async
+
+- **Return `Task`, not `void`, and await instead of blocking.** Use `async void` only for event handlers. `.Result` or `.Wait()` on unfinished async work can deadlock wherever a `SynchronizationContext` runs one thread at a time. It does when the work's continuation has to run on that context: the continuation waits for the context, and the context's thread is blocked on the task. ([Toub: How Async/Await Really Works in C#](https://devblogs.microsoft.com/dotnet/how-async-await-really-works/), [Cleary: Don't Block on Async Code](https://blog.stephencleary.com/2012/07/dont-block-on-async-code.html))
+- **Use `ConfigureAwait(false)` in library code, and leave it out of application code.** A library doesn't know its caller's context, so it shouldn't capture it. Skipping the capture avoids deadlocks with callers that block, and saves a context switch. ASP.NET Core has no `SynchronizationContext` of its own, so `ConfigureAwait(false)` changes nothing there unless other code installs a context or a custom `TaskScheduler`. UI code usually _needs_ the context. Meziantou.Analyzer's MA0004 reports an await without `ConfigureAwait`, so the templates key the rule on `IsPackable`. [templates/Directory.Build.props](../templates/Directory.Build.props) sets it to `false`, and a project that ships as a package sets `<IsPackable>true</IsPackable>` in its project file. [templates/Directory.Build.targets](../templates/Directory.Build.targets) turns MA0004 off for every project that doesn't, which covers an application's own class libraries and its test projects. ([Toub: ConfigureAwait FAQ](https://devblogs.microsoft.com/dotnet/configureawait-faq/), [Meziantou: Enforcing asynchronous code good practices using a Roslyn analyzer](https://www.meziantou.net/enforcing-asynchronous-code-good-practices-using-a-roslyn-analyzer.htm), [Meziantou.Analyzer: MA0004](https://github.com/meziantou/Meziantou.Analyzer/blob/3.0.317/docs/Rules/MA0004.md))
+- **Time out a task with `WaitAsync`, not `Task.WhenAny` over `Task.Delay`.** When the task finishes first, the delay is still pending, with a `System.Threading.Timer` behind it. On a hot path with a long timeout, "we could accumulate thousands upon thousands of those timers". `task.WaitAsync(timeout, timeProvider)` "correctly handles all the relevant cleanup", and throws `TimeoutException` as the hand-written version does. The .NET 11 SDK reports the pattern as CA2027, which fails a build from the templates. For the `TimeProvider` argument, see [datetime.md](datetime.md#services-inject-timeprovider-stop-writing-your-own-clock). ([Toub: Performance Improvements in .NET 11](https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-11/))
+- **Open a `FileStream` with `FileOptions.Asynchronous` when you call `ReadAsync` or `WriteAsync` on it.** "If you call async APIs on a stream not configured for async, the runtime may fall back to a less efficient path." Read a single small file on a startup path synchronously: for small reads, the overhead of async "can dominate the total time". ([Meziantou: Sync vs Async File I/O in .NET](https://www.meziantou.net/sync-vs-async-file-i-o-in-dotnet-raw-throughput-scalability-and-buffer-size.htm))
+- **Return `Task<T>`. Use `ValueTask<T>` only on hot APIs that usually complete synchronously,** such as a buffered read, and only after profiling shows the `Task` allocations matter. Await a `ValueTask` exactly once, and never concurrently. ([Toub: Understanding the Whys, Whats, and Whens of ValueTask](https://devblogs.microsoft.com/dotnet/understanding-the-whys-whats-and-whens-of-valuetask/))
+
+## `Span<T>` and `ArrayPool<T>`
+
+Before, with one string allocation per field:
+
+```csharp
+static int SumCsvAllocating(string line)
+{
+    int sum = 0;
+    foreach (string field in line.Split(','))
+    {
+        sum += int.Parse(field, CultureInfo.InvariantCulture);
+    }
+    return sum;
+}
+```
+
+After, with no allocations, because `Split` over a span returns `Range` values:
+
+```csharp
+static int SumCsv(ReadOnlySpan<char> line)
+{
+    int sum = 0;
+    foreach (Range range in line.Split(','))
+    {
+        sum += int.Parse(line[range], CultureInfo.InvariantCulture);
+    }
+    return sum;
+}
+```
+
+For a large temporary buffer, rent from the shared pool, and return the buffer in a `finally` block:
+
+```csharp
+using System.Buffers;
+
+static async Task<long> CountLinesAsync(Stream source, CancellationToken cancellationToken = default)
+{
+    // Counts 0x0A bytes, so the text has to be UTF-8 or another ASCII-compatible encoding,
+    // with lines that end in LF or CRLF. A bare CR isn't counted as a line ending.
+    const byte Newline = (byte)'\n';
+    long lines = 0;
+    byte last = Newline;
+    byte[] buffer = ArrayPool<byte>.Shared.Rent(81920);
+    try
+    {
+        int read;
+        while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
+        {
+            lines += buffer.AsSpan(0, read).Count(Newline);
+            last = buffer[read - 1];
+        }
+    }
+    finally
+    {
+        ArrayPool<byte>.Shared.Return(buffer);
+    }
+
+    // A final line with no newline after it still counts.
+    return last == Newline ? lines : lines + 1;
+}
+```
+
+Never use a buffer after you return it. `Rent` can return a larger buffer than you asked for, so slice it to the length you use.
+
+## GC modes
+
+**Keep the defaults.** ASP.NET Core uses server GC with DATAS, on by default since .NET 9, which adapts the heap count to load, and adjusts the heap size when the workload gets lighter or heavier. Everything else uses workstation GC. Override the default in only two cases, and measure memory and latency before and after:
+
+- **Many .NET services on one small node,** such as dense containers or sidecars: set `<ServerGarbageCollection>false</ServerGarbageCollection>`. Without DATAS, server GC provides a heap and a collector thread for each logical CPU in every process. DATAS "starts with one heap", but each process can still grow to as many heaps "as matches the machine core count".
+- **A CPU-bound batch or worker app outside ASP.NET Core:** opt _in_ to server GC for throughput.
+
+([Microsoft Learn: Workstation and server GC](https://learn.microsoft.com/dotnet/standard/garbage-collection/workstation-server-gc), [Microsoft Learn: Dynamic adaptation to application sizes (DATAS)](https://learn.microsoft.com/dotnet/standard/garbage-collection/datas), [Toub: Performance Improvements in .NET 10](https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-10/))
+
+**Set GC options in `runtimeconfig.json` or MSBuild, not environment variables.** The runtime parses numeric GC environment variables as hexadecimal. `DOTNET_GCHeapHardLimitPercent=60` reads as 0x60, which caps the heap at 96%, not 60%. As `System.GC.HeapHardLimitPercent` in `runtimeconfig.json`, the value is decimal. This applies to every numeric GC setting, including the heap count, the LOH threshold, and the high-memory percentage.
+
+You usually don't need a hard limit. Under a container memory limit, the GC treats the limit as total physical memory and sets the hard limit to 75% of it. Set your own only to go lower. ([Microsoft Learn: Garbage collector config settings](https://learn.microsoft.com/dotnet/core/runtime-config/garbage-collector), reviewed 2026-02-09; [Smith: Top 10 ways to reduce .NET memory usage in Kubernetes](https://ardalis.com/top-10-ways-to-reduce-net-memory-usage-in-kubernetes/))
+
+**Use `Environment.ProcessorCount` to size work, not to count the machine's cores.** Since .NET 6, it honours process affinity and container CPU limits, so under a cgroup quota it reports the quota. Use it for a thread pool or a `Parallel` loop, not for host capacity or a licence count.
+
+The BCL doesn't expose the host total, so call the platform:
+
+| OS      | Call                                   |
+| ------- | -------------------------------------- |
+| Windows | `GetActiveProcessorCount`              |
+| macOS   | `sysctlbyname("hw.logicalcpu")`        |
+| Linux   | Parse `/sys/devices/system/cpu/online` |
+
+The value can't change while the process runs, so cache it in a singleton. Declare the import with `[LibraryImport]`, so the marshalling is source-generated and survives trimming. ([Lock: Finding the total number of processors on a machine with .NET](https://andrewlock.net/finding-the-total-number-of-processors-on-a-machine-with-dotnet/))
+
+## Native AOT
+
+**Use Native AOT for short-lived and size-sensitive workloads, such as CLI tools, serverless functions, and sidecars. Keep the JIT for long-running services.**
+
+- AOT starts in milliseconds with no JIT warm-up, and uses less disk and memory.
+- The JIT has higher steady-state throughput from tiered compilation and dynamic PGO, and it runs reflection-heavy libraries that AOT trimming breaks.
+
+AOT needs the whole dependency graph to be trim-safe and AOT-safe: source-generated JSON, and no code generation at run time. Review the `IsAotCompatible` warnings before you commit to it. Run the test suite as an AOT build too, because reflection failures show up nowhere else. For details, see [testing.md](testing.md#framework-and-platform).
+
+For a CLI tool, a file-based app needs nothing extra: `dotnet publish app.cs` produces a Native AOT binary by default. ([Microsoft Learn: Native AOT deployment](https://learn.microsoft.com/dotnet/core/deploying/native-aot/), [Microsoft Learn: File-based apps](https://learn.microsoft.com/dotnet/core/sdk/file-based-apps), [dotnet/sdk: `dotnet run file.cs`](https://github.com/dotnet/sdk/blob/main/documentation/general/dotnet-run-file.md#other-commands))
+
+**When a library pulls in more than you call, trim the dead branch with an ILLink substitution.** A property the library checks at run time keeps everything behind it. Stub the getter to a constant, and the trimmer removes the whole chain. Lock stubbed `SymbolServer.get_IsSymweb` in `Microsoft.Diagnostics.Runtime` to `false`. That cut a Native AOT binary from 3.956 MB to 2.949 MB on win-x64 (25.4%), and by 22.2% to 22.3% on the four Linux targets.
+
+For `PublishAot`, pass the file to ILC directly. The `Microsoft.DotNet.ILCompiler` targets don't read `ILLinkSubstitutionsXmls`, and they ignore an `EmbeddedResource` named `ILLink.Substitutions.xml`. A stub changes the library's behaviour, so stub only a branch you've confirmed your app never takes. ([Lock: Stripping extra dependencies in .NET NativeAOT apps using linker substitutions](https://andrewlock.net/stripping-extra-dependencies-in-.net-nativeaot-apps-using-linker-substitutions/))
+
+```xml
+<!-- ILLink.Substitutions.xml -->
+<linker>
+  <assembly fullname="Microsoft.Diagnostics.Runtime">
+    <type fullname="Microsoft.Diagnostics.Runtime.Implementation.SymbolServer">
+      <method signature="System.Boolean get_IsSymweb()" body="stub" value="false" />
+    </type>
+  </assembly>
+</linker>
+```
+
+```xml
+<!-- in the .csproj -->
+<ItemGroup>
+  <IlcArg Include="--substitution:$(MSBuildThisFileDirectory)ILLink.Substitutions.xml" />
+</ItemGroup>
+```
+
+**Decide on invariant globalization separately from AOT.** `dotnet new webapiaot` sets `<InvariantGlobalization>true</InvariantGlobalization>` next to `<PublishAot>true</PublishAot>`, so the property arrives with an unrelated decision. It changes what every `ToString` and `Compare` call does, so keep it only if you chose it. For details, see [globalization.md](globalization.md).
+
+## Coming next (preview, not yet the opinion)
+
+.NET 11 ships runtime async, and at GA it "remains a preview feature". It moves suspending and resuming an `async` method from compiler-generated state machines into the runtime. ([.NET Blog: Announcing .NET 11](https://devblogs.microsoft.com/dotnet/announcing-dotnet-11/))
+
+To try it on a `net11.0` project, set `<Features>$(Features);runtime-async=on</Features>`. It needs neither `LangVersion=preview` nor `EnablePreviewFeatures`, and most of the shared framework already ships compiled that way. Toub measures a synchronously completing two-layer chain at 21.221 ns and 144 B before, and 6.151 ns and 0 B after. Exception propagation through 30 frames drops from 51.3 µs and 84.2 KB to 10.7 µs and 5.7 KB. It doesn't yet support `async void`, async iterators, or custom task-like return types, and Toub hopes "it'll be on by default starting in .NET 12". The [Async](#async) opinions stand either way: "The programming model hasn't changed", and `ConfigureAwait` "still has its usual meaning". Don't flatten helper methods to save a `Task` in the meantime: "don't contort source code to remove a clean await just because today's implementation might allocate an intermediate Task". ([Toub: Performance Improvements in .NET 11](https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-11/))
+
+If you do try it, "Move to .NET 11 first, with runtime async off", record a baseline, and turn it on in one project that has good tests. Live stack traces get shorter, so run "anything asserting on stack traces or reflecting over compiler-generated types" before you go further. ([Meziantou: Migrating to runtime async](https://www.meziantou.net/migrating-to-runtime-async.htm))
