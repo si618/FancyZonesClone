@@ -92,14 +92,17 @@ jobs:
             git commit -qam "$title"
             git push --force origin "$branch"
             if [ -z "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+              # Follows the awesome-humans description format: What changed, Why, then trailers.
               gh pr create --head "$branch" --title "$title" --body "$(printf '%s\n' \
-                "The CI runner now resolves .NET SDK ${SDK}, which changes the implicit ILCompiler and" \
-                "ILLink.Tasks references, so locked restore fails until the lock files match." \
+                "## What changed" \
                 "" \
-                "- \`global.json\`: the floor is raised to ${SDK}" \
-                "- Lock files: regenerated with \`dotnet restore --force-evaluate\` on ${SDK}" \
+                "The \`global.json\` SDK floor is ${SDK}, and the lock files are regenerated with" \
+                "\`dotnet restore --force-evaluate\` on that SDK. \`lock-files.yml\` opened this pull request." \
                 "" \
-                "Opened by the \`lock-files.yml\` workflow.")"
+                "## Why" \
+                "" \
+                "CI resolves SDK ${SDK}, which changes the implicit ILCompiler and ILLink.Tasks references," \
+                "so locked restore fails with NU1004 until the lock files match.")"
             else
               gh pr edit "$branch" --title "$title"
             fi
