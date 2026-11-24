@@ -50,7 +50,7 @@ A pull request squash-merges with its description as the commit body. GitHub ren
 - **Follow with `## Why`.** State the problem or the decision in the present tense, as the code stands without the change.
 - **Add another `##` section only for something the merged commit needs,** such as a setting to turn on before a workflow works. Put merge logistics, such as which branches need a rebase, in a comment, because the description becomes history.
 - **Use only Markdown that reads as plain text:** paragraphs, `##` headings, `-` lists, `**Label:**` leads, and inline code. Leave out tables, checkboxes, nested lists, and inline links, because the wrapping breaks them across lines.
-- **Link with references.** Write `#57` for an issue or pull request, and a short SHA for a commit. For any other link, use a reference-style link, `[text][1]`, with `[1]: https://…` on its own line before the trailers.
+- **Link with references.** Write `#57` for an issue or pull request, and a short SHA for a commit. For any other link, use a reference-style link, `[text][1]`, with `[1]: https://…` in its own paragraph before the trailers.
 - **End with trailers,** one per line in the last paragraph. Use `Closes: #12` for an issue the change finishes, and `Refs: #12` for one it only relates to.
 
 For example:
