@@ -38,7 +38,7 @@ Start-Process .\FancyZonesClone.exe --diagnose -Wait -RedirectStandardOutput dia
 
 It prints each monitor's identity, work area, layout, and zone rectangles, then exits without installing any hooks.
 
-Warnings and errors go to `%APPDATA%\FancyZonesClone\FancyZonesClone.log`, beside the config. Attach it when you report a bug. At 1 MiB the file moves to `FancyZonesClone.log.old`, which replaces the previous one.
+Each start, warning, and error goes to `%APPDATA%\FancyZonesClone\FancyZonesClone.log`, beside the config. Attach it when you report a bug. At 1 MiB the file moves to `FancyZonesClone.log.old`, which replaces the previous one.
 
 ## Build
 

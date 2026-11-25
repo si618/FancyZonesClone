@@ -115,6 +115,35 @@ public class FileLoggerProviderTests
     }
 
     [Test]
+    public async Task Log_FullFileCannotBeMovedAside_StillAppendsTheEvent()
+    {
+        // Arrange
+        string folder = NewFolder();
+        string path = Path.Combine(folder, "app.log");
+        using var provider = new FileLoggerProvider(path, new FakeTimeProvider(_start), maxBytes: 10);
+        ILogger logger = provider.CreateLogger("App");
+        logger.Log(LogLevel.Information, _event, "first", exception: null, (state, _) => state);
+
+        // A folder in the old file's place makes the move fail on every platform.
+        Directory.CreateDirectory(Path.Combine(path + ".old", "blocker"));
+
+        try
+        {
+            // Act
+            logger.Log(LogLevel.Information, _event, "second", exception: null, (state, _) => state);
+
+            // Assert
+            string[] lines = await File.ReadAllLinesAsync(path);
+            await Assert.That(lines.Length).IsEqualTo(2);
+            await Assert.That(lines[1]).EndsWith("second");
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task Log_PathIsAFolder_LosesTheEventWithoutThrowing()
     {
         // Arrange

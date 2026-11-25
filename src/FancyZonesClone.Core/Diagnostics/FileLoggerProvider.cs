@@ -6,7 +6,7 @@ namespace FancyZonesClone.Core.Diagnostics;
 /// <summary>
 /// Writes log events to one text file, so a user can attach it to a bug report. When the file reaches
 /// <paramref name="maxBytes"/>, it's moved to <c>&lt;path&gt;.old</c>, replacing the previous one, so the two
-/// files together stay under twice that size.
+/// files together stay under about twice that size.
 /// </summary>
 /// <param name="path">The log file. Its folder is created on the first write.</param>
 /// <param name="time">The clock for each event's timestamp.</param>
@@ -49,12 +49,7 @@ public sealed class FileLoggerProvider(string path, TimeProvider time, long maxB
                     Directory.CreateDirectory(folder);
                 }
 
-                var file = new FileInfo(path);
-                if (file.Exists && file.Length >= maxBytes)
-                {
-                    File.Move(path, path + ".old", overwrite: true);
-                }
-
+                MoveAsideWhenFull();
                 File.AppendAllText(path, entry);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -62,6 +57,24 @@ public sealed class FileLoggerProvider(string path, TimeProvider time, long maxB
                 // The callers log from catch blocks that keep the hooks alive, so a log that can't be written must
                 // not throw: the event is lost.
             }
+        }
+    }
+
+    // A move that fails, such as while a viewer holds the old file open, must not lose the event: the file grows
+    // past the limit until a later move works.
+    private void MoveAsideWhenFull()
+    {
+        try
+        {
+            var file = new FileInfo(path);
+            if (file.Exists && file.Length >= maxBytes)
+            {
+                File.Move(path, path + ".old", overwrite: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Try again on the next event.
         }
     }
 
