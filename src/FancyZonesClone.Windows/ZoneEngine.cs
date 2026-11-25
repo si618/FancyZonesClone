@@ -1,14 +1,15 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using FancyZonesClone.Core.Configuration;
+using FancyZonesClone.Core.Diagnostics;
 using FancyZonesClone.Core.Geometry;
 using FancyZonesClone.Core.Layouts;
 using FancyZonesClone.Core.Monitors;
 using FancyZonesClone.Core.Snapping;
 using FancyZonesClone.Core.Windows;
 using FancyZonesClone.Windows.Interop;
+using Microsoft.Extensions.Logging;
 
 namespace FancyZonesClone.Windows;
 
@@ -20,7 +21,7 @@ namespace FancyZonesClone.Windows;
 /// Hooks and timers call back on the thread that installs them, through its message loop, so <see cref="Start"/>
 /// must run on a thread that pumps messages, such as the Avalonia UI thread. Only one engine runs per process.
 /// </remarks>
-public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
+public sealed unsafe partial class ZoneEngine : IZoneSetSource, IDisposable
 {
     // Cursor sampling interval during a drag: about 100 Hz, smoother than a 60 Hz display needs.
     private const uint DragSampleMilliseconds = 10;
@@ -32,6 +33,10 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
 
     private readonly Func<FancyZonesCloneConfig> _config;
     private readonly Action _configChanged;
+    private readonly ILogger<ZoneEngine> _logger;
+
+    // A callback that fails on every 10 ms drag sample would otherwise fill the log in seconds.
+    private readonly RepeatedFailureFilter _callbackFailures = new(TimeProvider.System, TimeSpan.FromMinutes(1));
     private readonly OverlayWindow _overlay;
     private readonly DragController _drag;
     private readonly ZoneAssignments _assignments = new();
@@ -58,11 +63,15 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
     /// <summary>Creates the engine.</summary>
     /// <param name="config">Returns the current configuration; read on every event, so edits apply at once.</param>
     /// <param name="configChanged">Called to save the configuration after the engine changes it, such as for a layout hotkey.</param>
-    public ZoneEngine(Func<FancyZonesCloneConfig> config, Action configChanged)
+    /// <param name="loggerFactory">Creates the loggers for the engine and its overlay.</param>
+    public ZoneEngine(Func<FancyZonesCloneConfig> config, Action configChanged, ILoggerFactory loggerFactory)
     {
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+
         _config = config;
         _configChanged = configChanged;
-        _overlay = new OverlayWindow(() => _config().Settings);
+        _logger = loggerFactory.CreateLogger<ZoneEngine>();
+        _overlay = new OverlayWindow(() => _config().Settings, loggerFactory.CreateLogger<OverlayWindow>());
         _drag = new DragController(this, _overlay, () => _config().Settings);
     }
 
@@ -188,7 +197,7 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
         catch (Exception ex)
         {
             _monitors.Clear();
-            Trace.TraceError($"FancyZonesClone: couldn't read the monitors' layouts: {ex}");
+            LogMonitorsUnreadable(_logger, ex);
         }
     }
 #pragma warning restore CA1031
@@ -295,7 +304,7 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
             // A hotkey left behind after its layout was deleted would otherwise replace a working layout with no zones.
             if (LayoutResolver.FindCustomLayout(_config(), hotkey.LayoutId) is null)
             {
-                Trace.TraceWarning(string.Create(CultureInfo.InvariantCulture, $"FancyZonesClone: layout hotkey {digit} points at missing custom layout {hotkey.LayoutId}; ignoring it."));
+                LogHotkeyLayoutMissing(_logger, digit, hotkey.LayoutId);
                 return false;
             }
 
@@ -398,7 +407,7 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
         }
     }
 
-    // Each callback traps and traces its exceptions, because one escaping an unmanaged callback terminates the process.
+    // Each callback traps and logs its exceptions, because one escaping an unmanaged callback terminates the process.
 #pragma warning disable CA1031 // Catch everything: any exception that escapes would end the process mid-drag.
     private static void Guard(Action<ZoneEngine> action)
     {
@@ -413,7 +422,10 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
         }
         catch (Exception ex)
         {
-            Trace.TraceError($"FancyZonesClone: {ex}");
+            if (engine._callbackFailures.ShouldLog(ex))
+            {
+                LogCallbackFailed(engine._logger, ex);
+            }
         }
     }
 #pragma warning restore CA1031
@@ -513,4 +525,13 @@ public sealed unsafe class ZoneEngine : IZoneSetSource, IDisposable
             StopTimer(ref engine._flashTimer);
             engine._drag.EndFlash();
         });
+
+    [LoggerMessage(EventId = 200, Level = LogLevel.Error, Message = "Couldn't read the monitors' layouts, so Win+arrow passes through to Windows.")]
+    private static partial void LogMonitorsUnreadable(ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 201, Level = LogLevel.Warning, Message = "Layout hotkey {Digit} points at missing custom layout {LayoutId}; ignoring it.")]
+    private static partial void LogHotkeyLayoutMissing(ILogger logger, int digit, Guid layoutId);
+
+    [LoggerMessage(EventId = 202, Level = LogLevel.Error, Message = "A hook or timer callback failed. A repeat of it isn't logged again for a minute.")]
+    private static partial void LogCallbackFailed(ILogger logger, Exception exception);
 }

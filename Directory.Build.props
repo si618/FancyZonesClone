@@ -1,4 +1,4 @@
-<!-- From the awesome-humans/dotnet template (house profile: simon-mckenna). Every project inherits these settings.
+<!-- From the awesome-humans/dotnet template. Every project inherits these settings.
      Override one in a project only with a recorded reason. -->
 <Project>
 
@@ -10,25 +10,25 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Targets and language">
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <!-- Promotes nullable warnings to errors, so the compiler enforces annotations (opinions/csharp.md) -->
     <WarningsAsErrors>nullable</WarningsAsErrors>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Lets the net10.0-windows projects build on Linux and macOS, though not run, so the whole
+    <!-- Lets the net11.0-windows projects build on Linux and macOS, though not run, so the whole
          solution compiles in WSL and the Core tests run there. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <PropertyGroup Label="Quality gates">
-    <!-- house:simon-mckenna begin -->
-    <!-- **House:** Always on, not only in CI, so a warning fails the build as soon as it's introduced. Suppress with NoWarn or a pragma only with a comment that explains why. -->
-    <!-- house:simon-mckenna end -->
-    <!-- This includes NuGet Audit. NU1901 to NU1904 fail restore on purpose, even on a branch nobody
-         changed, on the day an advisory lands against the dependency graph. To suppress one advisory,
-         use NuGetAuditSuppress with its URL and a reason. Never list the codes in WarningsNotAsErrors
-         (opinions/ci.md). -->
+    <!-- On in every build, with no CI condition, so a compiler, analyzer, or NuGet warning fails
+         on the machine that introduces it. MSBuild's own warnings, such as MSB3277, need the
+         -warnaserror switch. This includes NuGet Audit. NU1901 to NU1904 fail restore on purpose,
+         even on a branch nobody changed, on the day an advisory lands against the dependency
+         graph. To suppress one advisory, use NuGetAuditSuppress with its URL and a reason. Never
+         list the codes in WarningsNotAsErrors. Suppress any other warning, with NoWarn or a
+         pragma, only with a comment that says why (opinions/ci.md). -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
@@ -36,6 +36,9 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Packaging hygiene">
+    <!-- Nothing packs: the app ships as a zip, not a NuGet package. Directory.Build.targets reads the
+         value to tell a library from application code (opinions/runtime-performance.md). -->
+    <IsPackable>false</IsPackable>
     <!-- Central Package Management (Directory.Packages.props) pins each package's version, not its content.
          packages.lock.json also records each package's hash, so restore fails if a feed serves different bytes for a
          pinned version (opinions/ci.md). -->
@@ -56,6 +59,12 @@
          CancellationToken forwarding, and async pitfalls (opinions/csharp.md). The version is
          pinned in Directory.Packages.props. -->
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+    <!-- Fails the build on every use of StringComparison.InvariantCulture and
+         InvariantCultureIgnoreCase, which BannedSymbols.txt, beside this file, lists. The .NET
+         SDK's own check for them (CA1309) looks only at Equals and Compare
+         (opinions/globalization.md). -->
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
   </ItemGroup>
 
   <PropertyGroup Label="Deterministic builds">

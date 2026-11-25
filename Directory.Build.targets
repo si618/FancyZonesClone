@@ -1,0 +1,13 @@
+<Project>
+
+  <!-- ConfigureAwait(false) belongs in library code, not application code
+       (opinions/runtime-performance.md). A library here is a project that ships as a package: it
+       sets IsPackable to true, and MA0004 stays on for it. Everything else is application code,
+       including an application's own class libraries and its test projects. MA0004's default
+       mode exempts only types such as controllers, Razor pages, and components, so without this
+       it fails awaits in services, middleware, minimal API handlers, and Program.cs. -->
+  <PropertyGroup Label="MA0004 in application code" Condition="'$(IsPackable)' != 'true'">
+    <NoWarn>$(NoWarn);MA0004</NoWarn>
+  </PropertyGroup>
+
+</Project>

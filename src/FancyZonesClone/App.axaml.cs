@@ -6,21 +6,30 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using FancyZonesClone.Core.Configuration;
+using FancyZonesClone.Core.Diagnostics;
 using FancyZonesClone.Core.Monitors;
 using FancyZonesClone.Views;
 using FancyZonesClone.Windows;
+using Microsoft.Extensions.Logging;
 
 namespace FancyZonesClone;
 
 /// <summary>The tray application: loads the config, runs the zone engine, and serves the tray menu.</summary>
-public sealed class App : Application, IDisposable
+public sealed partial class App : Application, IDisposable
 {
+    // One log file beside config.json, so a user can attach it to a bug report. The factory disposes its provider.
+    private readonly LoggerFactory _loggerFactory = new([new FileLoggerProvider(FileLoggerProvider.DefaultPath, TimeProvider.System)]);
+    private readonly ILogger<App> _logger;
+
     private FancyZonesCloneConfig _config = new();
     private ZoneEngine? _engine;
     private LayoutsWindow? _layoutsWindow;
     private HelpWindow? _helpWindow;
     private AboutWindow? _aboutWindow;
     private bool _reporting;
+
+    /// <summary>Creates the application.</summary>
+    public App() => _logger = _loggerFactory.CreateLogger<App>();
 
     /// <inheritdoc/>
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -31,11 +40,11 @@ public sealed class App : Application, IDisposable
         Dispatcher.UIThread.UnhandledException += OnUnhandledException;
 
         (_config, string source) = ConfigLoader.Load();
-        Trace.TraceInformation($"FancyZonesClone config: {source}");
+        LogConfigLoaded(_logger, source);
 
         // The engine's hooks call back through this thread's message loop, which Avalonia runs. A layout hotkey
         // already forgets the zones on its own monitor, so the engine only needs the config saved.
-        _engine = new ZoneEngine(() => _config, SaveConfig);
+        _engine = new ZoneEngine(() => _config, SaveConfig, _loggerFactory);
         _engine.Start();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -51,20 +60,21 @@ public sealed class App : Application, IDisposable
     {
         _engine?.Dispose();
         _engine = null;
+        _loggerFactory.Dispose();
     }
 
-    // A last resort for an exception no handler expected: trace it and keep snapping, instead of ending the process.
-    private static void OnUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs e)
+    // A last resort for an exception no handler expected: log it and keep snapping, instead of ending the process.
+    private void OnUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        Trace.TraceError($"FancyZonesClone: unhandled exception: {e.Exception}");
+        LogUnhandledException(_logger, e.Exception);
         e.Handled = true;
     }
 
     // A message box runs a modal loop in which the engine's deferred work, such as a layout hotkey's save, can fail
-    // again. Trace those failures, but show only one box at a time.
+    // again. Log those failures, but show only one box at a time.
     private void Report(string message)
     {
-        Trace.TraceWarning($"FancyZonesClone: {message}");
+        LogReported(_logger, message);
         if (_reporting)
         {
             return;
@@ -157,7 +167,7 @@ public sealed class App : Application, IDisposable
 
         foreach (string warning in result.Warnings)
         {
-            Trace.TraceWarning($"FancyZonesClone import: {warning}");
+            LogImportWarning(_logger, warning);
         }
 
         ReplaceConfig(result.Config, save: true);
@@ -207,7 +217,7 @@ public sealed class App : Application, IDisposable
         ConfigLoadResult loaded = ConfigStore.TryLoad(ConfigStore.DefaultPath);
         if (loaded.Error is { } error)
         {
-            Trace.TraceWarning($"FancyZonesClone: couldn't reload {ConfigStore.DefaultPath}; keeping the current config. {error}");
+            LogReloadFailed(_logger, ConfigStore.DefaultPath, error);
         }
 
         if (loaded.Config is { } config)
@@ -250,4 +260,19 @@ public sealed class App : Application, IDisposable
             desktop.Shutdown();
         }
     }
+
+    [LoggerMessage(EventId = 100, Level = LogLevel.Information, Message = "Config: {Source}")]
+    private static partial void LogConfigLoaded(ILogger logger, string source);
+
+    [LoggerMessage(EventId = 101, Level = LogLevel.Error, Message = "An unhandled exception reached the dispatcher.")]
+    private static partial void LogUnhandledException(ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 102, Level = LogLevel.Warning, Message = "{Message}")]
+    private static partial void LogReported(ILogger logger, string message);
+
+    [LoggerMessage(EventId = 103, Level = LogLevel.Warning, Message = "PowerToys import: {Warning}")]
+    private static partial void LogImportWarning(ILogger logger, string warning);
+
+    [LoggerMessage(EventId = 104, Level = LogLevel.Warning, Message = "Couldn't reload {Path}; keeping the current config. {Error}")]
+    private static partial void LogReloadFailed(ILogger logger, string path, string error);
 }

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using FancyZonesClone.Core.Configuration;
 using FancyZonesClone.Core.Geometry;
 using FancyZonesClone.Core.Layouts;
@@ -6,6 +5,7 @@ using FancyZonesClone.Core.Monitors;
 using FancyZonesClone.Core.Overlay;
 using FancyZonesClone.Core.Snapping;
 using FancyZonesClone.Windows.Interop;
+using Microsoft.Extensions.Logging;
 
 namespace FancyZonesClone.Windows;
 
@@ -13,7 +13,7 @@ namespace FancyZonesClone.Windows;
 /// The zone overlay: a click-through, never-activated, topmost layered window covering one monitor's work area,
 /// drawn from a premultiplied BGRA buffer with <c>UpdateLayeredWindow</c>.
 /// </summary>
-public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings) : IZoneOverlay, IDisposable
+public sealed unsafe partial class OverlayWindow(Func<FancyZonesCloneSettings> settings, ILogger<OverlayWindow> logger) : IZoneOverlay, IDisposable
 {
     private const string ClassName = "FancyZonesClone.Overlay";
 
@@ -25,8 +25,8 @@ public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings)
     private int _width;
     private int _height;
 
-    // Whether the current run of failures is already traced, so a drag sampled at 100 Hz traces it once.
-    private bool _failureTraced;
+    // Whether the current run of failures is already logged, so a drag sampled at 100 Hz logs it once.
+    private bool _failureLogged;
 
     /// <inheritdoc/>
     public void Show(MonitorDescriptor monitor, ZoneSet zoneSet, IReadOnlyList<int> highlighted)
@@ -153,7 +153,7 @@ public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings)
             _pixels = (uint*)bits;
             _width = width;
             _height = height;
-            _failureTraced = false;
+            _failureLogged = false;
             return true;
         }
         finally
@@ -164,10 +164,10 @@ public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings)
 
     private bool Fail(string call)
     {
-        if (!_failureTraced)
+        if (!_failureLogged)
         {
-            Trace.TraceWarning($"FancyZonesClone: {call} failed, so the zone overlay isn't shown. The process may be out of GDI handles or memory.");
-            _failureTraced = true;
+            LogSurfaceFailed(logger, call);
+            _failureLogged = true;
         }
 
         return false;
@@ -192,4 +192,7 @@ public sealed unsafe class OverlayWindow(Func<FancyZonesCloneSettings> settings)
         _width = 0;
         _height = 0;
     }
+
+    [LoggerMessage(EventId = 300, Level = LogLevel.Warning, Message = "{Call} failed, so the zone overlay isn't shown. The process may be out of GDI handles or memory.")]
+    private static partial void LogSurfaceFailed(ILogger logger, string call);
 }

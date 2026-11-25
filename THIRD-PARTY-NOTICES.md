@@ -140,8 +140,9 @@ The release links these packages. Native AOT compiles their managed code into th
 | SkiaSharp (and the Skia library) | MIT (BSD-3)   | [mono/SkiaSharp](https://github.com/mono/SkiaSharp)           |
 | HarfBuzzSharp (and HarfBuzz)     | MIT (Old MIT) | [mono/SkiaSharp](https://github.com/mono/SkiaSharp)           |
 | MicroCom.Runtime                 | MIT           | [kekekeks/MicroCom](https://github.com/kekekeks/MicroCom)     |
+| Microsoft.Extensions.Logging     | MIT           | [dotnet/runtime](https://github.com/dotnet/runtime)           |
 | .NET runtime                     | MIT           | [dotnet/runtime](https://github.com/dotnet/runtime)           |
 
-Avalonia references MicroCom.Runtime for COM interop, so it's in the graph that Native AOT compiles.
+Avalonia references MicroCom.Runtime for COM interop, so it's in the graph that Native AOT compiles. Microsoft.Extensions.Logging brings Microsoft.Extensions.DependencyInjection, Options, and Primitives from the same repository, under the same licence.
 
-The .NET runtime includes third-party code of its own, such as zlib and parts of the Unicode data. Its notices are in [`THIRD-PARTY-NOTICES.TXT`](https://github.com/dotnet/runtime/blob/release/10.0/THIRD-PARTY-NOTICES.TXT) in dotnet/runtime, and apply to the executable too.
+The .NET runtime includes third-party code of its own, such as zlib and parts of the Unicode data. Its notices are in [`THIRD-PARTY-NOTICES.TXT`](https://github.com/dotnet/runtime/blob/release/11.0/THIRD-PARTY-NOTICES.TXT) in dotnet/runtime, and apply to the executable too.

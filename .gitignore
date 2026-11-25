@@ -2,9 +2,6 @@
 # bin/ or obj/ of its own.
 artifacts/
 
-# TUnit's HTML and JSON test reports, written beside the solution by every test run
-TestResults/
-
 # IDE state
 .idea/
 .vs/

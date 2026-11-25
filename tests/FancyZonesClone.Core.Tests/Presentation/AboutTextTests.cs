@@ -24,17 +24,17 @@ public class AboutTextTests
     public async Task Runtime_NativeAot_SaysCompiledAheadOfTime()
     {
         // Act
-        string runtime = AboutText.Runtime(".NET 10.0.0", nativeAot: true);
+        string runtime = AboutText.Runtime(".NET 11.0.0", nativeAot: true);
 
         // Assert
-        await Assert.That(runtime).IsEqualTo(".NET 10.0.0, compiled ahead of time with Native AOT.");
+        await Assert.That(runtime).IsEqualTo(".NET 11.0.0, compiled ahead of time with Native AOT.");
     }
 
     [Test]
     public async Task Runtime_Jit_SaysReleaseBuildsAreNativeAot()
     {
         // Act
-        string runtime = AboutText.Runtime(".NET 10.0.0", nativeAot: false);
+        string runtime = AboutText.Runtime(".NET 11.0.0", nativeAot: false);
 
         // Assert
         await Assert.That(runtime).Contains("running on the JIT");
