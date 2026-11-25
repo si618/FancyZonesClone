@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using FancyZonesClone.Core.Configuration;
+using FancyZonesClone.Core.Diagnostics;
 using FancyZonesClone.Core.Geometry;
 using FancyZonesClone.Core.Layouts;
 using FancyZonesClone.Core.Monitors;
@@ -33,6 +34,9 @@ public sealed unsafe partial class ZoneEngine : IZoneSetSource, IDisposable
     private readonly Func<FancyZonesCloneConfig> _config;
     private readonly Action _configChanged;
     private readonly ILogger<ZoneEngine> _logger;
+
+    // A callback that fails on every 10 ms drag sample would otherwise fill the log in seconds.
+    private readonly RepeatedFailureFilter _callbackFailures = new(TimeProvider.System, TimeSpan.FromMinutes(1));
     private readonly OverlayWindow _overlay;
     private readonly DragController _drag;
     private readonly ZoneAssignments _assignments = new();
@@ -418,7 +422,10 @@ public sealed unsafe partial class ZoneEngine : IZoneSetSource, IDisposable
         }
         catch (Exception ex)
         {
-            LogCallbackFailed(engine._logger, ex);
+            if (engine._callbackFailures.ShouldLog(ex))
+            {
+                LogCallbackFailed(engine._logger, ex);
+            }
         }
     }
 #pragma warning restore CA1031
@@ -525,6 +532,6 @@ public sealed unsafe partial class ZoneEngine : IZoneSetSource, IDisposable
     [LoggerMessage(EventId = 201, Level = LogLevel.Warning, Message = "Layout hotkey {Digit} points at missing custom layout {LayoutId}; ignoring it.")]
     private static partial void LogHotkeyLayoutMissing(ILogger logger, int digit, Guid layoutId);
 
-    [LoggerMessage(EventId = 202, Level = LogLevel.Error, Message = "A hook or timer callback failed.")]
+    [LoggerMessage(EventId = 202, Level = LogLevel.Error, Message = "A hook or timer callback failed. A repeat of it isn't logged again for a minute.")]
     private static partial void LogCallbackFailed(ILogger logger, Exception exception);
 }

@@ -26,14 +26,14 @@ The Windows projects build on Linux with `EnableWindowsTargeting`, but only the 
 - **Put new logic in Core, with tests.** Keep Win32 and Avalonia out of Core, and keep the Windows layer a thin adapter. When a Windows-layer bug has logic in it, move that logic to Core so a test can cover it.
 - **Name tests `UnitOfWork_Scenario_ExpectedBehaviour`,** and mark their structure with `// Arrange`, `// Act`, and `// Assert` comments.
 - **Keep FancyZones' arithmetic exactly,** so imported layouts produce the same pixels. Check behaviour against `src/modules/fancyzones/FancyZonesLib` in [microsoft/PowerToys](https://github.com/microsoft/PowerToys) before you call a difference a bug, and mark ported files with the Microsoft copyright header.
-- **Log through `ILogger<T>`, with one source-generated `[LoggerMessage]` method for each event.** Don't interpolate a string in a log call, and pass an exception as the `Exception` parameter. `App` builds the one `LoggerFactory` over Core's `FileLoggerProvider`, which writes `%APPDATA%\FancyZonesClone\FancyZonesClone.log`. Number events by class: `App` from 100, `ZoneEngine` from 200, and `OverlayWindow` from 300. The log is for diagnostics, not an audit trail, so nothing exports it. A log call can run in a `catch` that keeps a hook alive, so a provider never throws.
+- **Log through `ILogger<T>`, with one source-generated `[LoggerMessage]` method for each event.** Don't interpolate a string in a log call, and pass an exception as the `Exception` parameter. `App` builds the one `LoggerFactory` over Core's `FileLoggerProvider`, which writes `%APPDATA%\FancyZonesClone\FancyZonesClone.log`. Number events by class: `App` from 100, `ZoneEngine` from 200, and `OverlayWindow` from 300. The log is for diagnostics, not an audit trail, so nothing exports it. A log call can run in a `catch` that keeps a hook alive, so a provider never throws. `ZoneEngine.Guard` logs a repeated failure once a minute, through `RepeatedFailureFilter`.
 - **Keep interop AOT-safe.** Don't marshal delegates to native code, and don't use reflection-based JSON: serialise through `ConfigJsonContext`.
 - **Set package versions only in `Directory.Packages.props`,** then run `dotnet restore` and commit the `packages.lock.json` files it updates.
 
 These decisions depart from the opinions on purpose, so don't change them back:
 
 - **`.gitignore` is written by hand,** not generated with `dotnet new gitignore`. `UseArtifactsOutput` puts all build and test output under `artifacts/`, so the file needs that entry and the IDE state, and the SDK template's several hundred lines would hide them.
-- **The `global.json` SDK version is a patch-level pin that `lock-files.yml` raises for each SDK patch,** not a minimum raised only for a feature. Each patch moves the implicit ILCompiler and ILLink.Tasks versions in the lock files, so an older SDK fails the locked restore with NU1004. The pin makes it fail with a clear message instead.
+- **`lock-files.yml` raises the `global.json` SDK floor for each SDK patch,** not only for a feature the repository needs. Each patch moves the implicit ILCompiler and ILLink.Tasks versions in the lock files, so an older SDK fails the locked restore with NU1004. The raised floor makes it fail with a clear message instead.
 
 ## Maintaining this repository
 
