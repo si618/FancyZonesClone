@@ -20,7 +20,7 @@ public class ZoneHighlighterTests
         highlighter.Update(_fourColumns, new PixelPoint(350, 50), selectMany: true, OverlappingZonesAlgorithm.Smallest);
 
         // Assert
-        await Assert.That(highlighter.Zones).IsEquivalentTo([0, 1, 2, 3], CollectionOrdering.Matching);
+        await Assert.That(highlighter.Zones).IsEquivalentTo([0, 1, 2, 3], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -34,7 +34,7 @@ public class ZoneHighlighterTests
         highlighter.Update(_fourColumns, new PixelPoint(350, 50), selectMany: false, OverlappingZonesAlgorithm.Smallest);
 
         // Assert
-        await Assert.That(highlighter.Zones).IsEquivalentTo([3], CollectionOrdering.Matching);
+        await Assert.That(highlighter.Zones).IsEquivalentTo([3], EqualityComparer<int>.Default, CollectionOrdering.Matching);
     }
 
     [Test]
