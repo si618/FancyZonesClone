@@ -11,6 +11,7 @@
   },
   "schedule": ["before 9am on monday"],
   "prConcurrentLimit": 3,
+  "gitIgnoredAuthors": ["41898282+github-actions[bot]@users.noreply.github.com"],
   "labels": ["dependencies"],
   "packageRules": [
     {

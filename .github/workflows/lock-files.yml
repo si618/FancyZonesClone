@@ -1,0 +1,116 @@
+name: Lock files
+
+# global.json rolls forward to the newest 10.0 SDK, and each SDK patch moves the implicit ILCompiler and
+# ILLink.Tasks references, so the lock files go stale without any commit here. Renovate's own restore doesn't
+# update them either. This workflow regenerates them with the SDK that CI resolves:
+# - on a schedule, on main: it pushes chore/refresh-lock-files and opens a pull request
+# - on a push to a Renovate branch: it commits the lock files to that branch
+on:
+  schedule:
+    - cron: '41 21 * * *' # daily; SDK patches usually ship on the second Tuesday of the month
+  push:
+    branches: ['renovate/**']
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: lock-files-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    # Restore runs NuGet package code, so this job only reads. The push job below runs no package code.
+    # Linux is enough: restore writes the same lock files on any OS, and CI on windows-latest accepts them.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+      sdk: ${{ steps.diff.outputs.sdk }}
+    env:
+      AVALONIA_TELEMETRY_OPTOUT: 1
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore --force-evaluate
+      # On main, raise the floor too, so a local SDK older than CI's fails with a clear message instead of NU1004.
+      - if: github.ref == 'refs/heads/main'
+        run: |
+          jq --arg sdk "$(dotnet --version)" '.sdk.version = $sdk' global.json > global.json.tmp
+          mv global.json.tmp global.json
+      - id: diff
+        run: |
+          echo "sdk=$(dotnet --version)" >> "$GITHUB_OUTPUT"
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --binary > lock-files.patch
+            git diff --stat
+          fi
+      - if: steps.diff.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lock-files-patch
+          path: lock-files.patch
+
+  push:
+    needs: regenerate
+    if: needs.regenerate.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the lock files
+      pull-requests: write # open the refresh pull request
+      actions: write # dispatch CI, because pushes made with GITHUB_TOKEN don't trigger workflows
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SDK: ${{ needs.regenerate.outputs.sdk }}
+      REFRESH_BRANCH: chore/refresh-lock-files
+    steps:
+      # This job runs no package code, so checkout may keep the token for the push.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: lock-files-patch
+      - name: Commit, push, and run CI
+        run: |
+          git apply lock-files.patch
+          rm lock-files.patch
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          if [ "$GITHUB_REF" = refs/heads/main ]; then
+            branch=$REFRESH_BRANCH
+            title="chore: refresh the lock files for sdk ${SDK}"
+            git switch -c "$branch"
+            git commit -qam "$title"
+            git push --force origin "$branch"
+            if [ -z "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+              # Follows the awesome-humans description format: What changed, Why, then trailers.
+              gh pr create --head "$branch" --title "$title" --body "$(printf '%s\n' \
+                "## What changed" \
+                "" \
+                "The \`global.json\` SDK floor is ${SDK}, and the lock files are regenerated with" \
+                "\`dotnet restore --force-evaluate\` on that SDK. \`lock-files.yml\` opened this pull request." \
+                "" \
+                "## Why" \
+                "" \
+                "CI resolves SDK ${SDK}, which changes the implicit ILCompiler and ILLink.Tasks references," \
+                "so locked restore fails with NU1004 until the lock files match.")"
+            else
+              gh pr edit "$branch" --title "$title"
+            fi
+          else
+            branch=${GITHUB_REF#refs/heads/}
+            git commit -qam "chore: update the lock files"
+            git push origin "HEAD:$branch"
+          fi
+
+          gh workflow run ci.yml --ref "$branch"
+          gh workflow run codeql.yml --ref "$branch"
