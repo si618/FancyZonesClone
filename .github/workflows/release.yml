@@ -53,8 +53,9 @@ jobs:
       - run: dotnet test --no-build --configuration Release
       # The app ships only as Native AOT, and trimming and reflection-free serialisation change behaviour that the
       # managed run can't see, so compile the tests natively and run them too. The test project sets IsPublishable
-      # to false, which this lane overrides.
-      - run: dotnet publish tests/FancyZonesClone.Core.Tests --no-restore --configuration Release -p:IsPublishable=true
+      # to false, which this lane overrides. PublishRuntimeIdentifier applies only to the native compile, so this
+      # step compiles the assemblies that the managed run tested, without rebuilding them.
+      - run: dotnet publish tests/FancyZonesClone.Core.Tests --no-build --configuration Release -p:IsPublishable=true
       - run: ./artifacts/publish/FancyZonesClone.Core.Tests/release/FancyZonesClone.Core.Tests.exe
       # The app project sets RuntimeIdentifier to win-x64, so this compiles the assemblies that the build step
       # produced and the tests ran against, without rebuilding them.
