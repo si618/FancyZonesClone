@@ -18,6 +18,8 @@
     <!-- Without it, PublishAot defaults the publish RID to the build host's, which adds linux-x64 on the Ubuntu
          CodeQL runner, and the locked restore fails with NU1004 because packages.lock.json has only win-x64. -->
     <PublishRuntimeIdentifier>win-x64</PublishRuntimeIdentifier>
+    <!-- Decided on its own, not as part of Native AOT: the UI is English only, every format call passes
+         CultureInfo.InvariantCulture, and nothing looks up a culture or a time zone, so the app ships without ICU. -->
     <InvariantGlobalization>true</InvariantGlobalization>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
     <!-- The hooks do little work per event, so smaller code beats faster code here. -->
