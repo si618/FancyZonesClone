@@ -15,17 +15,24 @@
     <PackageVersion Include="Avalonia.Win32" Version="12.2.0" />
   </ItemGroup>
 
+  <ItemGroup Label="Logging">
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Build">
     <PackageVersion Include="MinVer" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Analyzers">
     <PackageVersion Include="Meziantou.Analyzer" Version="3.0.342" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
   </ItemGroup>
 
   <!-- No Microsoft.Testing.Platform entry: TUnit brings its own compatible version, and a pin
        here would override it through transitive pinning. -->
   <ItemGroup Label="Testing">
+    <!-- FakeTimeProvider, for the log's timestamps (opinions/testing.md). -->
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="11.0.0" />
     <PackageVersion Include="TUnit" Version="1.87.12" />
   </ItemGroup>
 

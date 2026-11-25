@@ -1,6 +1,6 @@
 # Agent instructions
 
-FancyZonesClone is a standalone port of PowerToys FancyZones: a .NET 10, C# 14 tray app, published with Native AOT. This file tells an AI agent how to maintain it.
+FancyZonesClone is a standalone port of PowerToys FancyZones: a .NET 11, C# 15 tray app, published with Native AOT. This file tells an AI agent how to maintain it.
 
 ## What this repository is
 
@@ -26,8 +26,14 @@ The Windows projects build on Linux with `EnableWindowsTargeting`, but only the 
 - **Put new logic in Core, with tests.** Keep Win32 and Avalonia out of Core, and keep the Windows layer a thin adapter. When a Windows-layer bug has logic in it, move that logic to Core so a test can cover it.
 - **Name tests `UnitOfWork_Scenario_ExpectedBehaviour`,** and mark their structure with `// Arrange`, `// Act`, and `// Assert` comments.
 - **Keep FancyZones' arithmetic exactly,** so imported layouts produce the same pixels. Check behaviour against `src/modules/fancyzones/FancyZonesLib` in [microsoft/PowerToys](https://github.com/microsoft/PowerToys) before you call a difference a bug, and mark ported files with the Microsoft copyright header.
+- **Log through `ILogger<T>`, with one source-generated `[LoggerMessage]` method for each event.** Don't interpolate a string in a log call, and pass an exception as the `Exception` parameter. `App` builds the one `LoggerFactory` over Core's `FileLoggerProvider`, which writes `%APPDATA%\FancyZonesClone\FancyZonesClone.log`. Number events by class: `App` from 100, `ZoneEngine` from 200, and `OverlayWindow` from 300. The log is for diagnostics, not an audit trail, so nothing exports it. A log call can run in a `catch` that keeps a hook alive, so a provider never throws.
 - **Keep interop AOT-safe.** Don't marshal delegates to native code, and don't use reflection-based JSON: serialise through `ConfigJsonContext`.
 - **Set package versions only in `Directory.Packages.props`,** then run `dotnet restore` and commit the `packages.lock.json` files it updates.
+
+These decisions depart from the opinions on purpose, so don't change them back:
+
+- **`.gitignore` is written by hand,** not generated with `dotnet new gitignore`. `UseArtifactsOutput` puts all build and test output under `artifacts/`, so the file needs that entry and the IDE state, and the SDK template's several hundred lines would hide them.
+- **The `global.json` SDK version is a patch-level pin that `lock-files.yml` raises for each SDK patch,** not a minimum raised only for a feature. Each patch moves the implicit ILCompiler and ILLink.Tasks versions in the lock files, so an older SDK fails the locked restore with NU1004. The pin makes it fail with a clear message instead.
 
 ## Maintaining this repository
 
@@ -93,7 +99,7 @@ These rules cover all prose here: the README, this file, code comments, commit m
 
 ### Worktrees
 
-Work in a git worktree, with one branch per directory. The local clone is bare, and each branch is checked out beside `.bare/`, so you move between pieces of work with `cd` instead of `git checkout`. An in-place branch switch changes the tree under a running build or another agent mid-edit, and discards the gitignored `artifacts/` and `TestResults/`.
+Work in a git worktree, with one branch per directory. The local clone is bare, and each branch is checked out beside `.bare/`, so you move between pieces of work with `cd` instead of `git checkout`. An in-place branch switch changes the tree under a running build or another agent mid-edit, and discards the gitignored `artifacts/`.
 
 - **Starting:** Start every new piece of work as a new worktree, with `git worktree add -b <branch> ../<dir> main`. The `../` puts it beside `.bare/` rather than inside the worktree you run it from.
 - **Branch names:** Use the commit's Conventional Commits type (`feat/`, `fix/`, `test/`, `docs/`, `ci/`, or `chore/`) and a kebab-case slug. Settle the name before you open the pull request. Renaming a branch through the GitHub UI retargets the pull request, but pushing it under a new name and deleting the old remote ref closes it.

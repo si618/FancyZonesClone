@@ -28,6 +28,7 @@ public static class AboutText
         new("SkiaSharp", "MIT. Renders Avalonia's graphics through Skia.", new Uri("https://github.com/mono/SkiaSharp")),
         new("HarfBuzzSharp", "MIT. Shapes Avalonia's text through HarfBuzz.", new Uri("https://github.com/mono/SkiaSharp")),
         new("MicroCom.Runtime", "MIT. Avalonia's AOT-safe COM interop.", new Uri("https://github.com/kekekeks/MicroCom")),
+        new("Microsoft.Extensions.Logging", "MIT. Passes the app's warnings and errors to the log file.", new Uri("https://github.com/dotnet/runtime")),
         new("MinVer", "Apache-2.0. Takes the version from the git tag at build time, so it doesn't ship.", new Uri("https://github.com/adamralph/minver")),
     ];
 
@@ -55,7 +56,7 @@ public static class AboutText
     }
 
     /// <summary>Describes the runtime and how the executable was compiled.</summary>
-    /// <param name="frameworkDescription">The value of <c>RuntimeInformation.FrameworkDescription</c>, such as <c>.NET 10.0.0</c>.</param>
+    /// <param name="frameworkDescription">The value of <c>RuntimeInformation.FrameworkDescription</c>, such as <c>.NET 11.0.0</c>.</param>
     /// <param name="nativeAot">Whether the process runs as a Native AOT executable, with no JIT.</param>
     public static string Runtime(string frameworkDescription, bool nativeAot)
     {
